@@ -1,136 +1,55 @@
-"use client"
+import ClientesErros from "@/components/clienteserros";
+import useIntegrador from "@/hooks/use-integrador";
+import { TotalClienteDash } from "@/services/totalclientes";
+import { useState } from "react";
 
-import { TrendingUp } from "lucide-react"
-import { Label, PolarRadiusAxis, RadialBar, RadialBarChart } from "recharts"
+export const AtivoInativos = () => {
+    
+       const [totalClientesNumber, setToalCLienteNumber]: any = useState(0)
+       const [nulos, setNulos] = useState(0);
+       const [naoNulos, setNaoNulos] = useState(0)
+       const integrador = useIntegrador()
+     
+       async function totalClientes(){
+         const numberCliente = await TotalClienteDash(integrador)
+       
+         setToalCLienteNumber(Number(numberCliente.nulos) + Number(numberCliente.nao_nulos))
+         setNulos(numberCliente.nulos);
+         setNaoNulos(numberCliente.nao_nulos)
+       }
+     
+     
+     totalClientes()
+    
+    
+     const percentual = totalClientesNumber > 0 ? (nulos / totalClientesNumber * 100) : 0
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import {
-  ChartConfig,
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart"
-import { useState } from "react"
-
-import { TotalClienteDash } from "@/services/totalclientes"
-import ClientesErros from "@/components/clienteserros"
-
-
-export function AtivoInativos() {
-
-   const [totalClientesNumber, setToalCLienteNumber]: any = useState(0)
-   const [nulos, setNulos] = useState(0);
-   const [naoNulos, setNaoNulos] = useState(0)
- 
-   async function totalClientes(){
-     const numberCliente = await TotalClienteDash()
-   
-     setToalCLienteNumber(Number(numberCliente.nulos) + Number(numberCliente.nao_nulos))
-     setNulos(numberCliente.nulos);
-     setNaoNulos(numberCliente.nao_nulos)
-   }
- 
- 
- totalClientes()
-
-const chartData = [{ month: "january", nulos: nulos, nnulos: naoNulos}]
-
-const chartConfig = {
-  nulos: {
-    label: "Inativos",
-    color: "hsl(var(--chart-1))",
-  },
-  nnulos: {
-    label: "Ativos",
-    color: "hsl(var(--chart-2))",
-  },
-} satisfies ChartConfig
-
-
-const percentual = nulos / naoNulos * 100;
-
-  return (
-    <Card className="h-full flex-grow max-w-[400px]">
-      <CardHeader className="items-center pb-0">
-        <CardTitle className="font-poppins font-light">Ativos / Inativos</CardTitle>
-        <CardDescription></CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-1 items-center pb-0">
-        <ChartContainer
-          config={chartConfig}
-          className="mx-auto aspect-square w-full max-w-[250px]"
-        >
-          <RadialBarChart
-            data={chartData}
-            endAngle={180}
-            innerRadius={80}
-            outerRadius={130}
-          >
-            <ChartTooltip
-              cursor={false}
-              content={<ChartTooltipContent hideLabel />}
-            />
-            <PolarRadiusAxis tick={false} tickLine={false} axisLine={false}>
-              <Label
-                content={({ viewBox }) => {
-                  if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                    return (
-                      <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle">
-                        <tspan
-                          x={viewBox.cx}
-                          y={(viewBox.cy || 0) - 16}
-                          className="fill-foreground text-2xl font-bold"
-                        >
-                          {totalClientesNumber}
-                        </tspan>
-                        <tspan
-                          x={viewBox.cx}
-                          y={(viewBox.cy || 0) + 4}
-                          className="fill-muted-foreground"
-                        >
-                          Ativos - Inativos
-                        </tspan>
-                      </text>
-                    )
-                  }
-                }}
-              />
-            </PolarRadiusAxis>
-            <RadialBar
-              dataKey="nulos"
-              stackId="a"
-              cornerRadius={5}
-              fill="var(--color-nulos)"
-              className="stroke-transparent stroke-2"
-            />
-            <RadialBar
-              dataKey="nnulos"
-              fill="var(--color-nnulos)"
-              stackId="a"
-              cornerRadius={5}
-              className="stroke-transparent stroke-2"
-            />
-          </RadialBarChart>
-        </ChartContainer>
-      </CardContent>
-      <CardFooter className="flex-col gap-2 text-sm">
-
-      <h3><ClientesErros /></h3>
-        <div className="flex items-center gap-2 font-medium leading-none">
-         
-          {percentual.toFixed(2)}% de clientes inativos<TrendingUp className="h-4 w-4" />
+    return (
+         <div className="bg-white rounded-2xl p-6 shadow-lg border border-green-100 hover:shadow-xl transition-shadow duration-300">
+        <div className="flex items-center gap-4 mb-4">
+            <div className="p-3 bg-green-100 rounded-xl">
+                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+            <div>
+                <h3 className="font-semibold text-gray-800">Ativos/Inativos </h3>
+                <p className="text-sm text-gray-500">Status dos clientes</p>
+            </div>
         </div>
-        <div className="leading-none text-muted-foreground">
-      
+        <div className="flex gap-4">
+            <div>
+                <div className="text-2xl font-bold text-green-600">{naoNulos}</div>
+                <div className="text-xs text-gray-500">Ativos</div>
+            </div>
+            <div>
+                <div className="text-2xl font-bold text-gray-400">{nulos}</div>
+                <div className="text-xs text-gray-500 flex items-center gap-2">Inativos <ClientesErros /></div>
+                <div className="hidden"><p>{percentual}</p></div>
+
+                
+            </div>
         </div>
-      </CardFooter>
-    </Card>
-  )
+    </div>
+    )
 }

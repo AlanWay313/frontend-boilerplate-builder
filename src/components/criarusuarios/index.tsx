@@ -49,11 +49,11 @@ export function CriarUsuarios({ listarUsuarios }: CriarUsuariosProps) {
       };
 
       await api.post(
-        "https://hub.sysprov.com.br/integraoletv/src/services/CriarNovoUsuario.php",
+        "/src/services/CriarNovoUsuario.php",
         dataUser,
         {
           params: {
-            integraId: integra(),
+            integraId: integra,
           },
         }
       );

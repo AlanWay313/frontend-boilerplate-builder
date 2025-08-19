@@ -1,11 +1,14 @@
+import useIntegrador from "@/hooks/use-integrador";
 import { useToast } from "@/hooks/use-toast";
-import axios from "axios";
+import api from "@/services/api";
+
 import { useState } from "react";
 import Loading from 'react-loading';
 export default function ReintegrarCliente({ nome }: any) {
 
     const [loading, setLoading] = useState<any>(false)
-    const user: any = JSON.parse(localStorage.getItem("auth") as any);
+    const user: any = JSON.parse(localStorage.getItem("access") as any);
+    const integrador: any = useIntegrador();
 
   const { toast }: any = useToast();
 
@@ -17,14 +20,14 @@ export default function ReintegrarCliente({ nome }: any) {
             
             const formData = new FormData();
             // Adiciona os parâmetros
-            formData.append("idIntegra", String(user.data.integrador));
+            formData.append("idIntegra", integrador);
             formData.append("nome_cliente", String(nome));
             // Adiciona os cabeçalhos como parâmetros do FormData
-            formData.append("Username", String(user.data.access.user));
-            formData.append("Token", String(user.data.access.token));
-            formData.append("Password", String(user.data.access.pass));
+            formData.append("Username", String(user.user));
+            formData.append("Token", String(user.token));
+            formData.append("Password", String(user.pass));
 
-            const response = await axios.post("https://hub.sysprov.com.br/integraoletv/src/services/ReintegrarCliente.php", formData, {
+            const response = await api.post("/src/services/ReintegrarCliente.php", formData, {
                 headers: {
                     "Content-Type": "multipart/form-data" // Define o tipo de conteúdo como multipart/form-data
                 }
@@ -32,6 +35,8 @@ export default function ReintegrarCliente({ nome }: any) {
 
 
 
+
+            
 
             if(!response.data.message){
                  toast({

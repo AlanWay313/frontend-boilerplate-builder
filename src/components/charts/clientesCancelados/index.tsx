@@ -1,130 +1,37 @@
-"use client"
+import VerCancelados from "@/components/vercancelados";
+import useIntegrador from "@/hooks/use-integrador";
+import { ClientesCanceladosApi } from "@/services/clientesCancelados";
+import React from "react";
 
-import * as React from "react"
-
-import { Label, Pie, PieChart } from "recharts"
-
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import {
-  ChartConfig,
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart"
-import { ClientesCanceladosApi } from "@/services/clientesCancelados"
-import VerCancelados from "@/components/vercancelados"
-import { UserRoundMinus } from "lucide-react"
+export const ClientesCancelados = () => {
+    
+         const [cancelados, setCancelados]: any = React.useState(0)
+          const integrador: any = useIntegrador();
 
 
-export function ClientesCancelados() {
-
-  const [cancelados, setCancelados]: any = React.useState(0)
-
-
-  
-  async function Cancelados(){
-    const clientesCancelados = await ClientesCanceladosApi()
-
-    setCancelados(clientesCancelados.length)
-  }
-
-
-  Cancelados()
-
-
-  const chartData = [
-    { browser: "cancelados", cancelados: Number(cancelados), fill: "var(--color-cancelados)" },
-   
-  
-  ]
-  
-  const chartConfig = {
-   
-    cancelados: {
-      label: "Cancelados",
-      color: "hsl(var(--chart-4))",
-    }
-  } satisfies ChartConfig
-
-
-  
-  return (
-    <Card className="h-full flex-grow max-w-[400px]">
-      <CardHeader className="items-center pb-0 flex justify-center">
-        <div className="flex items-center gap-2">
-        <CardTitle className="font-poppins font-light">Total de Cancelados</CardTitle>
-        <h3 className="text-3xl font-bold flex items-center gap-2">
-            <UserRoundMinus />
-            <VerCancelados />
-          </h3>
+           async function Cancelados(){
+              const clientesCancelados = await ClientesCanceladosApi(integrador)
+              setCancelados(clientesCancelados.length)
+            }
+          
+            React.useEffect(() => {
+              Cancelados()
+            }, [])
+    return (
+           <div className="bg-white rounded-2xl p-6 shadow-lg border border-red-100 hover:shadow-xl transition-shadow duration-300">
+        <div className="flex items-center gap-4 mb-4">
+            <div className="p-3 bg-red-100 rounded-xl">
+                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM9 14a6 6 0 00-6 6v1h12v-1a6 6 0 00-6-6zM21 12h-6" />
+                </svg>
+            </div>
+            <div>
+                <h3 className="font-semibold text-gray-800 flex  items-center gap-2">Clientes Cancelados <VerCancelados /></h3>
+                <p className="text-sm text-gray-500">Cancelamentos</p>
+            </div>
         </div>
-        <CardDescription></CardDescription>
-      </CardHeader>
-      <CardContent className="flex-1 pb-0">
-        <ChartContainer
-          config={chartConfig}
-          className="mx-auto aspect-square max-h-[220px]"
-        >
-          <PieChart>
-            <ChartTooltip
-              cursor={false}
-              content={<ChartTooltipContent hideLabel />}
-            />
-            <Pie
-              data={chartData}
-              dataKey="cancelados"
-              nameKey="browser"
-              innerRadius={60}
-              strokeWidth={5}
-            >
-              <Label
-                content={({ viewBox }) => {
-                  if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                    return (
-                      <text
-                        x={viewBox.cx}
-                        y={viewBox.cy}
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                      >
-                        <tspan
-                          x={viewBox.cx}
-                          y={viewBox.cy}
-                          className="fill-foreground text-3xl font-bold"
-                        >
-                          {cancelados}
-                        </tspan>
-                        <tspan
-                          x={viewBox.cx}
-                          y={(viewBox.cy || 0) + 24}
-                          className="fill-muted-foreground"
-                        >
-                          Cancelados
-                        </tspan>
-                      </text>
-                    )
-                  }
-                }}
-              />
-            </Pie>
-          </PieChart>
-        </ChartContainer>
-      </CardContent>
-      <CardFooter className="flex-col gap-2 text-sm">
-        <div className="flex items-center  font-medium leading-none">
-
-        </div>
-        <div className="leading-none text-muted-foreground">
-       
-        </div>
-      </CardFooter>
-    </Card>
-  )
+        <div className="text-3xl font-bold text-red-600 mb-2">{cancelados}</div>
+        {/* <div className="text-sm text-red-600 font-medium">+8% este mês</div> */}
+    </div>
+    )
 }

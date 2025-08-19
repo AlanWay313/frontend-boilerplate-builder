@@ -22,10 +22,10 @@ export function DeletarUsuario({ idUser, listarUsuarios }: UserProps) {
 
   // Função para deletar o usuário
   async function DeletarUsuarioUnico() {
-    console.log(`Deletando usuário com ID: ${idUser}`);
+   
     try {
       const result = await api.delete(
-        "https://hub.sysprov.com.br/integraoletv/src/services/DeletarUsuario.php",
+        "/src/services/DeletarUsuario.php",
         {
           headers: {
             iduser: String(idUser), // Enviando o ID como string no cabeçalho

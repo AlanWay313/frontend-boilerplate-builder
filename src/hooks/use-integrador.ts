@@ -2,7 +2,6 @@ import { AuthContext } from "@/contexts/Auth";
 import { useContext } from "react";
 
 export default function useIntegrador() {
-  const { Integrador }: any = useContext(AuthContext); 
-
-  return Integrador; 
+  const { getIntegrador } = useContext(AuthContext);
+  return getIntegrador(); // chama a função
 }

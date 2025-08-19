@@ -10,9 +10,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "../ui/input";
 import { useEffect, useState } from "react";
-import axios from "axios";
 import { useToast } from "@/hooks/use-toast";
 import MaskedInput from 'react-text-mask'; // Importa o MaskedInput
+import api from "@/services/api";
 
 export default function Exclusivos() {
     const [nome, setNome] = useState<string>("");
@@ -47,7 +47,7 @@ export default function Exclusivos() {
         };
 
         try {
-            const result = await axios.post("https://hub.sysprov.com.br/integraoletv/src/services/WhiteList.php", data, {
+            const result = await api.post("/src/services/WhiteList.php", data, {
                 params: {
                     idIntegra: idIntegra
                 }

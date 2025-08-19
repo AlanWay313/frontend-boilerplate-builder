@@ -10,10 +10,11 @@ import { Pen } from "lucide-react";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { useState } from "react";
-import axios from "axios";
+
 import { useToast } from "@/hooks/use-toast";
 import Loading from 'react-loading';
-export default function EditarCliente({ data }: any) {
+import api from "@/services/api";
+export default function EditarCliente({ data, listarClientes }: any) {
     const [id] = useState(data.id); // Não é necessário alterar o ID
     const [nome, setNome] = useState(data.nome);
     const [cpfCnpj, setCpfCnpj] = useState(data.cpf_cnpj);
@@ -53,7 +54,7 @@ export default function EditarCliente({ data }: any) {
         try {
 
             setLoading(true)
-            const response = await axios.put(`https://hub.sysprov.com.br/integraoletv/src/models/EditarClienteOle.php`, data);
+            const response = await api.put(`/src/models/EditarClienteOle.php`, data);
 
 
             setClose(false);
@@ -66,6 +67,8 @@ export default function EditarCliente({ data }: any) {
                 title: "Editar Cliente",
                 description:  response.data.message
             })
+
+            await listarClientes();
            
             setLoading(false)
              

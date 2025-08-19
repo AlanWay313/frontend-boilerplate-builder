@@ -1,8 +1,10 @@
 import axios from 'axios';
 
 // Crie uma instância do Axios
+
+
 const api = axios.create({
-  baseURL: 'https://hub.sysprov.com.br/integraoletv/src/services', 
+  baseURL: 'https://webhooks.sysprov.com.br/ole/', 
                  
 });
 

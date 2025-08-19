@@ -1,97 +1,91 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+
 import App from "./App";
 import DashboardPage from "./pages/Dashboard";
 import Login from "./pages/Login";
-
-
-
 import { Clientes } from "./pages/Clientes";
 import { Logs } from "./pages/Logs";
-import Financeiro  from "./pages/Financeiro";
+import Financeiro from "./pages/Financeiro";
 import { Configuracoes } from "./pages/Configuracoes";
 import { Usuarios } from "./pages/Usuarios";
-import { useEffect, useState } from "react";
+import Conta from "./pages/Conta";
 
 
-// Função para verificar se o usuário é admin
-const getIsAdmin = () => {
-  const authData = localStorage.getItem("auth");
-  if (authData) {
-    const user = JSON.parse(authData);
-    return Number(user?.data?.isAdmin) || false;
-  }
-  return false;
+const isLogged = (): boolean => {
+  return !!localStorage.getItem("access_token");
 };
 
-// Função para verificar se o usuário está logado
-const isLogged = () => {
-  const authData = localStorage.getItem("auth");
-  if (authData) {
-    const dadosConvertidos = JSON.parse(authData);
-    return dadosConvertidos.success;
-  }
-  return false;
+const getIsAdmin = (): boolean => {
+  const userData = localStorage.getItem("auth_user");
+  if (!userData) return false;
+  const user = JSON.parse(userData);
+  return user?.admin || false;
 };
 
-// Componente que verifica se o usuário está logado antes de renderizar a rota
-const PrivateRoute = ({ element }: any) => {
+const PrivateRoute = ({ element }: { element: JSX.Element }) => {
   const [auth, setAuth] = useState<boolean | null>(null);
 
   useEffect(() => {
-    const authStatus = isLogged();
-    setAuth(authStatus);
+    setAuth(isLogged());
   }, []);
 
-  if (auth === null) {
-    return <div>Loading...</div>;
-  }
+  if (auth === null) return <div>Carregando...</div>;
 
   return auth ? element : <Navigate to="/login" />;
 };
 
-
-
-// Componente para rotas que requerem que o usuário seja admin
-const AdminRoute = ({ element }: any) => {
-  const [isAdmin, setIsAdmin] = useState<any>(null);
+const AdminRoute = ({ element }: { element: JSX.Element }) => {
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
 
   useEffect(() => {
-    const adminStatus = getIsAdmin();
-    setIsAdmin(adminStatus);
+    setIsAdmin(getIsAdmin());
   }, []);
 
-  if (isAdmin === null) {
-    return <div>Loading...</div>; // Exibe um loading enquanto verifica o status de admin
-  }
+  if (isAdmin === null) return <div>Carregando...</div>;
 
-  if (!isLogged()) {
-    return <Navigate to="/login" />;
-  }
+  if (!isLogged()) return <Navigate to="/login" />;
 
-  if (!isAdmin) {
-    return <Navigate to="/home" />;
-  }
+  return isAdmin ? element : <Navigate to="/" />;
+};
 
-  return element;
+const RootRoute = ({ children }: { children: JSX.Element }) => {
+  const [logged, setLogged] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    setLogged(isLogged());
+  }, []);
+
+  if (logged === null) return <div>Carregando...</div>;
+
+  return logged ? children : <Navigate to="/login" />;
 };
 
 export const routes = createBrowserRouter([
   {
     path: "/",
-    element: isLogged() ? <App /> : <Navigate to="/login" />,
+    element: (
+      <RootRoute>
+        <App />
+      </RootRoute>
+    ),
     children: [
       { path: "/", element: <PrivateRoute element={<DashboardPage />} /> },
       { path: "clientes", element: <PrivateRoute element={<Clientes />} /> },
       { path: "logs", element: <PrivateRoute element={<Logs />} /> },
       { path: "financeiro", element: <AdminRoute element={<Financeiro />} /> },
-      { path: "configuracoes", element: <AdminRoute element={<Configuracoes />} /> },
-      { path: "usuarios", element: <AdminRoute element={<Usuarios />} /> },
-      
+      { path: "configuracoes", element: <PrivateRoute element={<Configuracoes />} /> },
+      { path: "usuarios", element: <PrivateRoute element={<Usuarios />} /> },
+      { path: "conta", element: <Conta />} ,
+   
     ],
   },
   {
     path: "/login",
-    element: isLogged() ? <Navigate to="/dashboard" /> : <Login />,
-  }
-  
-]);
+    element: isLogged() ? <Navigate to="/" /> : <Login />,
+  },
+
+],
+
+
+);

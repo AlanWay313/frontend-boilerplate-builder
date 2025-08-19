@@ -1,4 +1,3 @@
-import axios from "axios"
 import { Button } from "../ui/button"
 import { useToast } from "@/hooks/use-toast"
 import {
@@ -12,59 +11,61 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useState } from "react"
+import api from "@/services/api"
 
 export default function ResetSenha({ contratoCliente, emailCliente }: any) {
-  const [openModal, setOpenModal] = useState(false) // Inicializa como falso
+  const [openModal, setOpenModal] = useState(false)
+  const [loading, setLoading] = useState(false) // estado do loading
   const { toast }: any = useToast()
 
-  // Função para resetar a senha, chamada após confirmação
   const handleResetSenha = async () => {
     try {
-      const result: any = await axios.get(
-        "https://hub.sysprov.com.br/integraoletv/src/models/ResetarSenhaCliente.php",
-        {
-          params: {
-            contratoCliente: contratoCliente,
-            emailCliente: emailCliente,
-          },
-        }
-      )
+      setLoading(true)
 
-     if(!result){
-      toast({
-        title: "Resetar senha do usuário",
-        description: "Ocorreu um erro ao resetar a senha!",
+      const result: any = await api.get("/src/models/ResetarSenhaCliente.php", {
+        params: {
+          contratoCliente: contratoCliente,
+          emailCliente: emailCliente,
+        },
       })
 
-      return;
-     }
+      console.log(result)
 
-     if(result.data === null){
+      if (!result || !result.data) {
+        toast({
+          title: "Resetar senha do usuário",
+          description: "Ocorreu um erro ao resetar a senha!",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // pega msg ou message dependendo de qual vier
+      const mensagem = result.data.msg || result.data.message || "Operação concluída."
+
       toast({
         title: "Resetar senha do usuário",
-        description: "Ocorreu um erro ao resetar a senha!",
-      })
-
-      return;
-     }
-      toast({
-        title: "Resetar senha do usuário",
-        description: result.data.message,
+        description: mensagem,
       })
     } catch (error) {
-      console.log(error)
+      console.error(error)
+      toast({
+        title: "Erro no servidor",
+        description: "Não foi possível resetar a senha. Tente novamente.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
     }
   }
 
-  // Função para abrir o modal
   const handleOpenModal = () => {
     setOpenModal(true)
   }
 
-  // Função para quando o usuário confirmar "Sim"
   const handleConfirmReset = () => {
-    setOpenModal(false) // Fecha o modal
-    handleResetSenha() // Realiza o reset da senha
+    setOpenModal(false)
+    handleResetSenha()
   }
 
   return (
@@ -77,23 +78,24 @@ export default function ResetSenha({ contratoCliente, emailCliente }: any) {
               Tem certeza que deseja resetar a senha do cliente?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Ao resetar a senha, o cliente receberá instruções no e-mail
-              cadastrado. Deseja prosseguir?
+              Ao resetar a senha, o cliente receberá instruções no e-mail cadastrado. Deseja prosseguir?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setOpenModal(false)}>
               Cancelar
             </AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmReset}>
-              Sim
+            <AlertDialogAction onClick={handleConfirmReset} disabled={loading}>
+              {loading ? "Enviando..." : "Sim"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       {/* Botão para iniciar o processo de reset */}
-      <Button onClick={handleOpenModal}>RESETAR SENHA</Button>
+      <Button onClick={handleOpenModal} disabled={loading}>
+        {loading ? "Processando..." : "RESETAR SENHA"}
+      </Button>
     </div>
   )
 }

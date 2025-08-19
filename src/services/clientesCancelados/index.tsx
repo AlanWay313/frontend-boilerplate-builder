@@ -1,15 +1,15 @@
-import useIntegrador from "@/hooks/use-integrador";
+
 import api from "../api";
 
 
-export async function ClientesCanceladosApi(){
-    const integra: any = useIntegrador();
-
+export async function ClientesCanceladosApi(integrador: any){
+   
+   
     try {
 
         const result = await api.get(
-            "https://hub.sysprov.com.br/integraoletv/src/clientes/listarclientes.php",
-            { params: { idIntegra: integra() } }
+            "/src/clientes/listarclientes.php",
+            { params: { idIntegra: integrador } }
           );
           // Filtra apenas os clientes cancelados
           const clientesCancelados = result.data.data.filter(

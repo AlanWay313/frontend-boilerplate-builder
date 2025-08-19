@@ -1,124 +1,38 @@
-import { TotalClienteDash } from "@/services/totalclientes"
+import useIntegrador from '@/hooks/use-integrador';
+import { TotalClienteDash } from '@/services/totalclientes';
+import { useState } from 'react';
+// Componentes de exemplo - substitua pelos seus componentes reais
+export const TotalClientes = () => {
+    const [totalClientesNumber, setToalCLienteNumber] = useState(0)
+    
+      const integrador = useIntegrador();
+    
+      async function totalClientes(){
+        const numberCliente = await TotalClienteDash(integrador)
+      
+    
+    
+        setToalCLienteNumber(Number(numberCliente.nulos) + Number(numberCliente.nao_nulos))
+      }
+    
+    
+    totalClientes()
 
-import { TrendingUp } from "lucide-react"
-import {
-  Label,
-  PolarGrid,
-  PolarRadiusAxis,
-  RadialBar,
-  RadialBarChart,
-} from "recharts"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import { ChartConfig, ChartContainer } from "@/components/ui/chart"
-import { useState } from "react"
-
-
-
-export function TotalClientes(){
-
-  const [totalClientesNumber, setToalCLienteNumber] = useState(0)
-
-  async function totalClientes(){
-    const numberCliente = await TotalClienteDash()
-  
-
-
-    setToalCLienteNumber(Number(numberCliente.nulos) + Number(numberCliente.nao_nulos))
-  }
-
-
-totalClientes()
-
-
-
-  const chartData = [
-    { browser: "safari", nulos: totalClientesNumber, fill: "var(--color-nulos)" },
-  ]
-  const chartConfig = {
-    nulos: {
-      label: "Clientes",
-      color: "hsl(var(--chart-2))"
-    }
-  } satisfies ChartConfig
-  
-
-  return (
-    <div>
- <Card className="h-full flex-grow max-w-[400px]" >
-      <CardHeader className="items-center pb-0">
-        <CardTitle className="font-poppins font-light">Total de Clientes</CardTitle>
-        <CardDescription></CardDescription>
-      </CardHeader>
-      <CardContent className="flex-1 pb-0">
-        <ChartContainer
-          config={chartConfig}
-          className="mx-auto aspect-square max-h-[250px]"
-        >
-          <RadialBarChart
-            data={chartData}
-            startAngle={0}
-            endAngle={250}
-            innerRadius={80}
-            outerRadius={110}
-          >
-            <PolarGrid
-              gridType="circle"
-              radialLines={false}
-              stroke="none"
-              className="first:fill-muted last:fill-background"
-              polarRadius={[86, 74]}
-            />
-            <RadialBar dataKey="nulos" background cornerRadius={10} />
-            <PolarRadiusAxis tick={false} tickLine={false} axisLine={false}>
-              <Label
-                content={({ viewBox }) => {
-                  if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                    return (
-                      <text
-                        x={viewBox.cx}
-                        y={viewBox.cy}
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                      >
-                        <tspan
-                          x={viewBox.cx}
-                          y={viewBox.cy}
-                          className="fill-foreground text-4xl font-bold"
-                        >
-                          {totalClientesNumber}
-                        </tspan>
-                        <tspan
-                          x={viewBox.cx}
-                          y={(viewBox.cy || 0) + 24}
-                          className="fill-muted-foreground"
-                        >
-                          Clientes
-                        </tspan>
-                      </text>
-                    )
-                  }
-                }}
-              />
-            </PolarRadiusAxis>
-          </RadialBarChart>
-        </ChartContainer>
-      </CardContent>
-      <CardFooter className="flex-col gap-2 text-sm">
-        <div className="flex items-center gap-2 font-medium leading-none">
-          Mostrando total de clientes na base <TrendingUp className="h-4 w-4" />
+   return (
+     <div className="bg-white rounded-2xl p-6 shadow-lg border border-blue-100 hover:shadow-xl transition-shadow duration-300">
+        <div className="flex items-center gap-4 mb-4">
+            <div className="p-3 bg-blue-100 rounded-xl">
+                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                </svg>
+            </div>
+            <div>
+                <h3 className="font-semibold text-gray-800">Total de Clientes</h3>
+                <p className="text-sm text-gray-500">Clientes cadastrados</p>
+            </div>
         </div>
-        <div className="leading-none text-muted-foreground">
-        
-        </div>
-      </CardFooter>
-    </Card>
+        <div className="text-3xl font-bold text-blue-600 mb-2">{totalClientesNumber}</div>
+        {/* <div className="text-sm text-green-600 font-medium">+12% este mês</div> */}
     </div>
-  )
-}
+   )
+};

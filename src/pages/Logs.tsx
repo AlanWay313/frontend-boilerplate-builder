@@ -8,7 +8,7 @@ export function Logs(){
 
     return (
         <div>
-            <TitlePage title="Logs"/>
+            <TitlePage title=""/>
 
             <TabelaLogs />
         </div>

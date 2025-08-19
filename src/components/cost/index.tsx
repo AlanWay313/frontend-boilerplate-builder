@@ -14,7 +14,7 @@ export default function Cost() {
     useEffect(() => {
         const handleCost = async () => {
             try {
-                const result = await axios.get("https://hub.sysprov.com.br/integraoletv/src/services/CostPlan.php", {
+                const result = await axios.get("/src/services/CostPlan.php", {
                     params: {
                         idIntegra: "3"
                     }
