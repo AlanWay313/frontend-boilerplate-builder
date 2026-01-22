@@ -386,32 +386,93 @@ const StatusBadge = ({ status, size = "sm" }: { status: string; size?: "sm" | "l
   );
 };
 
-// Componente de estatísticas redesenhado
+// Componente de estatísticas redesenhado com visual premium
 const LogStatsCards = ({ stats }: { stats: LogStats }) => {
   const statItems = [
-    { label: 'Total', value: stats.total, icon: FileText, color: 'primary' },
-    { label: 'Erros', value: stats.error, icon: AlertCircle, color: 'destructive' },
-    { label: 'Avisos', value: stats.warning, icon: AlertTriangle, color: 'warning' },
-    { label: 'Sucessos', value: stats.success, icon: CheckCircle, color: 'success' },
-    { label: 'Info', value: stats.info, icon: Info, color: 'primary' },
+    { 
+      label: 'Total de Logs', 
+      value: stats.total, 
+      icon: FileText, 
+      gradient: 'from-primary to-accent',
+      bgGradient: 'from-primary/10 to-accent/10',
+      iconBg: 'bg-primary/20',
+      textColor: 'text-primary'
+    },
+    { 
+      label: 'Erros', 
+      value: stats.error, 
+      icon: AlertCircle, 
+      gradient: 'from-destructive to-destructive/80',
+      bgGradient: 'from-destructive/10 to-destructive/5',
+      iconBg: 'bg-destructive/20',
+      textColor: 'text-destructive'
+    },
+    { 
+      label: 'Avisos', 
+      value: stats.warning, 
+      icon: AlertTriangle, 
+      gradient: 'from-warning to-warning/80',
+      bgGradient: 'from-warning/10 to-warning/5',
+      iconBg: 'bg-warning/20',
+      textColor: 'text-warning'
+    },
+    { 
+      label: 'Sucessos', 
+      value: stats.success, 
+      icon: CheckCircle, 
+      gradient: 'from-success to-success/80',
+      bgGradient: 'from-success/10 to-success/5',
+      iconBg: 'bg-success/20',
+      textColor: 'text-success'
+    },
+    { 
+      label: 'Informações', 
+      value: stats.info, 
+      icon: Info, 
+      gradient: 'from-accent to-primary',
+      bgGradient: 'from-accent/10 to-primary/10',
+      iconBg: 'bg-accent/20',
+      textColor: 'text-accent'
+    },
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
       {statItems.map((item) => {
         const Icon = item.icon;
         return (
-          <Card key={item.label} className={`border-${item.color}/20 bg-${item.color}/5 hover:bg-${item.color}/10 transition-colors`}>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg bg-${item.color}/10`}>
-                  <Icon className={`h-4 w-4 text-${item.color}`} />
-                </div>
-                <div>
+          <Card 
+            key={item.label} 
+            className={`group relative overflow-hidden border-border/50 hover:border-border hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 hover:-translate-y-0.5`}
+          >
+            {/* Background gradient decorativo */}
+            <div className={`absolute inset-0 bg-gradient-to-br ${item.bgGradient} opacity-50 group-hover:opacity-70 transition-opacity`} />
+            
+            {/* Círculo decorativo */}
+            <div className={`absolute -top-6 -right-6 w-20 h-20 bg-gradient-to-br ${item.gradient} rounded-full opacity-10 group-hover:opacity-20 transition-opacity`} />
+            
+            <CardContent className="relative p-4">
+              <div className="flex items-start justify-between">
+                <div className="space-y-1">
                   <p className="text-xs font-medium text-muted-foreground">{item.label}</p>
-                  <p className="text-xl font-bold text-foreground">{item.value}</p>
+                  <p className={`text-3xl font-bold ${item.textColor}`}>
+                    {item.value.toLocaleString('pt-BR')}
+                  </p>
+                </div>
+                <div className={`p-2.5 rounded-xl ${item.iconBg} group-hover:scale-110 transition-transform`}>
+                  <Icon className={`h-5 w-5 ${item.textColor}`} />
                 </div>
               </div>
+              
+              {/* Barra de progresso visual */}
+              {stats.total > 0 && item.label !== 'Total de Logs' && (
+                <div className="mt-3 h-1 bg-secondary/50 rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full bg-gradient-to-r ${item.gradient} rounded-full transition-all duration-500`}
+                    style={{ width: `${Math.min((item.value / stats.total) * 100, 100)}%` }}
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
         );
@@ -816,22 +877,22 @@ export function TabelaLogs() {
   if (isLoading && !data) return <Loading />;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {/* Stats Cards */}
       <LogStatsCards stats={stats} />
 
-      {/* Filters */}
-      <Card className="border-border">
-        <CardContent className="p-4">
+      {/* Filters - Design premium */}
+      <Card className="border-border/50 bg-gradient-to-br from-card to-secondary/20 shadow-sm">
+        <CardContent className="p-5">
           <div className="flex flex-col lg:flex-row gap-4">
             <div className="flex flex-1 items-center gap-3">
-              <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <div className="relative flex-1 max-w-md group">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                 <Input
-                  placeholder="Filtrar por documento..."
+                  placeholder="Buscar por documento, título ou descrição..."
                   value={(table.getColumn("id_cliente")?.getFilterValue() as string) ?? ""}
                   onChange={(e) => table.getColumn("id_cliente")?.setFilterValue(e.target.value)}
-                  className="pl-10 bg-background"
+                  className="pl-10 bg-background/50 border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all h-11"
                 />
               </div>
 
@@ -927,14 +988,31 @@ export function TabelaLogs() {
         </CardContent>
       </Card>
 
-      {/* Table */}
-      <Card className="border-border overflow-hidden">
+      {/* Table - Design premium */}
+      <Card className="border-border/50 overflow-hidden shadow-sm bg-card/50 backdrop-blur-sm">
+        {/* Header da tabela */}
+        <div className="px-5 py-4 border-b border-border/50 bg-gradient-to-r from-secondary/30 to-transparent">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <FileText className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground">Registros de Log</h3>
+                <p className="text-xs text-muted-foreground">
+                  {totalRows.toLocaleString('pt-BR')} registro{totalRows !== 1 ? 's' : ''} encontrado{totalRows !== 1 ? 's' : ''}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="bg-secondary/30 hover:bg-secondary/30">
+              <TableRow key={headerGroup.id} className="bg-secondary/20 hover:bg-secondary/20 border-b border-border/50">
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} className="font-semibold text-foreground/80 h-12">
+                  <TableHead key={header.id} className="font-semibold text-foreground/70 h-12 text-xs uppercase tracking-wide">
                     {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                   </TableHead>
                 ))}
@@ -946,7 +1024,7 @@ export function TabelaLogs() {
               table.getRowModel().rows.map((row, index) => (
                 <TableRow 
                   key={row.id} 
-                  className={`transition-colors hover:bg-primary/5 ${index % 2 === 0 ? 'bg-card' : 'bg-secondary/10'}`}
+                  className={`transition-all duration-200 hover:bg-primary/5 hover:shadow-sm border-b border-border/30 ${index % 2 === 0 ? 'bg-card/50' : 'bg-secondary/5'}`}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id} className="py-3">
