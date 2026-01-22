@@ -11,8 +11,8 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { TrendingUp, ArrowUp, ArrowDown, Users } from "lucide-react"
 import useIntegrador from "@/hooks/use-integrador"
-import { ListarTodosClientes } from "@/services/listarTodosClientes"
-import { filterByPeriodo } from "@/lib/date-filter-utils"
+import { TotalClienteDash } from "@/services/totalclientes"
+import { ClientesCanceladosApi } from "@/services/clientesCancelados"
 import { DashboardFilters } from "../dashboard-filters-context"
 
 interface MonthlyData {
@@ -44,31 +44,14 @@ export function ClientsChart({ filters }: ClientsChartProps) {
       
       setIsLoading(true)
       try {
-        const todosClientes = await ListarTodosClientes(integrador)
+        const [clientesData, canceladosData] = await Promise.all([
+          TotalClienteDash(integrador),
+          ClientesCanceladosApi(integrador),
+        ])
 
-        // Aplicar filtro de período usando created_at
-        const clientesFiltrados = filterByPeriodo(todosClientes, filters?.periodo || "todos")
-
-        // Calcular contagens por status
-        let ativos = 0
-        let inativos = 0
-        let cancelados = 0
-
-        clientesFiltrados.forEach((cliente: any) => {
-          const status = cliente.voalle_contract_status?.toLowerCase()
-          const temContrato = cliente.ole_contract_number && cliente.ole_contract_number.toString().trim() !== ''
-
-          if (status === 'cancelado') {
-            cancelados++
-          } else if (!temContrato) {
-            inativos++
-          } else if (status === 'normal') {
-            ativos++
-          } else {
-            if (temContrato) ativos++
-            else inativos++
-          }
-        })
+        let ativos = Number(clientesData?.nao_nulos || 0)
+        let inativos = Number(clientesData?.nulos || 0)
+        let cancelados = canceladosData?.length || 0
 
         // Aplicar filtro de status
         if (filters?.status && filters.status !== "todos") {
@@ -95,28 +78,9 @@ export function ClientsChart({ filters }: ClientsChartProps) {
         const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
         const currentMonth = new Date().getMonth()
         
-        // Aplica filtro de período para o gráfico
-        let monthsToShow = currentMonth + 1
-        if (filters?.periodo) {
-          switch (filters.periodo) {
-            case "hoje":
-            case "7dias":
-            case "30dias":
-              monthsToShow = 1
-              break
-            case "90dias":
-              monthsToShow = 3
-              break
-            case "ano":
-              monthsToShow = currentMonth + 1
-              break
-          }
-        }
-        
         // Simula evolução baseada no total real atual
-        const startMonth = Math.max(0, currentMonth + 1 - monthsToShow)
-        const monthlyData = months.slice(startMonth, currentMonth + 1).map((month, index) => {
-          const baseAtivos = Math.max(10, ativos - ((monthsToShow - 1 - index) * Math.floor(ativos * 0.05)))
+        const monthlyData = months.slice(0, currentMonth + 1).map((month, index) => {
+          const baseAtivos = Math.max(10, ativos - ((currentMonth - index) * Math.floor(ativos * 0.05)))
           return {
             month,
             ativos: Math.min(ativos, baseAtivos + Math.floor(Math.random() * 5)),
