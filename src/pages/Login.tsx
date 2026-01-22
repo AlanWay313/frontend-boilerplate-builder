@@ -101,12 +101,10 @@ export default function Login() {
               </div>
             </div>
 
-            {/* Forgot Password */}
-            <div className="flex justify-end">
-              <button type="button" className="text-sm text-slate-600 hover:text-slate-900 transition-colors font-medium">
-                Esqueceu a senha?
-              </button>
-            </div>
+            {/* Forgot Password Info */}
+            <p className="text-xs text-slate-500 text-center">
+              Esqueceu sua senha? Entre em contato com o responsável.
+            </p>
 
             {/* Submit Button */}
             <button 
