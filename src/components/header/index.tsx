@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { GlobalSearch } from "@/components/global-search";
+import { NotificationsButton } from "@/components/notifications";
 
 export default function Header() {
   const { logout }: any = useContext(AuthContext);
@@ -41,8 +42,10 @@ export default function Header() {
         <GlobalSearch />
       </div>
 
-      {/* Right - Profile */}
-      <div className="flex items-center gap-3">
+      {/* Right - Notifications & Profile */}
+      <div className="flex items-center gap-2">
+        <NotificationsButton />
+        
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-3 p-2 rounded-lg hover:bg-secondary transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20">
