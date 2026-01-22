@@ -2,9 +2,10 @@ import { useContext } from "react";
 import { 
   ChevronDown, 
   User, 
-  LogOut
+  LogOut,
+  Zap
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { AuthContext } from "@/contexts/Auth";
 import {
   DropdownMenu,
@@ -15,11 +16,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { GlobalSearch } from "@/components/global-search";
 import { NotificationsButton } from "@/components/notifications";
-import { ChangelogButton, useChangelog } from "@/components/changelog";
+import { Button } from "@/components/ui/button";
 
 export default function Header() {
   const { logout }: any = useContext(AuthContext);
-  const { openModal, hasNewUpdates } = useChangelog();
+  const navigate = useNavigate();
 
   const authData: any = localStorage.getItem("auth_user");
   const userData: any = authData ? JSON.parse(authData) : null;
@@ -46,7 +47,15 @@ export default function Header() {
 
       {/* Right - Notifications & Profile */}
       <div className="flex items-center gap-2">
-        <ChangelogButton onClick={openModal} hasNew={hasNewUpdates} />
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate('/changelog')}
+          className="gap-2 text-muted-foreground hover:text-foreground"
+        >
+          <Zap className="h-4 w-4" />
+          <span className="hidden sm:inline">Novidades</span>
+        </Button>
         <NotificationsButton />
         
         <DropdownMenu>
