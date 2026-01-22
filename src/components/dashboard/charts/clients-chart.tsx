@@ -142,7 +142,7 @@ export function ClientsChart() {
             </p>
             <div className="flex items-center gap-1 mt-1 text-xs text-success">
               <Users className="w-3 h-3" />
-              <span>Com acesso ao sistema</span>
+              <span>Com contrato ativo</span>
             </div>
           </div>
           <div className="bg-gradient-to-br from-success/10 to-success/5 rounded-xl p-4 border border-success/20">
@@ -162,7 +162,7 @@ export function ClientsChart() {
             </p>
             <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
               <ArrowDown className="w-3 h-3" />
-              <span>{stats.inativos} inativos</span>
+              <span>{stats.inativos} sem contrato</span>
             </div>
           </div>
         </div>
