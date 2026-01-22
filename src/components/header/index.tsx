@@ -1,12 +1,9 @@
 import { useContext } from "react";
 import { 
-  Bell, 
   Search, 
   ChevronDown, 
   User, 
-  LogOut,
-  Settings,
-  HelpCircle
+  LogOut
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { AuthContext } from "@/contexts/Auth";
@@ -16,9 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
 
 export default function Header() {
   const { logout }: any = useContext(AuthContext);
@@ -53,34 +48,8 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Right - Actions & Profile */}
+      {/* Right - Profile */}
       <div className="flex items-center gap-3">
-        {/* Help */}
-        <Button variant="ghost" size="icon" className="h-10 w-10 rounded-lg hover:bg-secondary">
-          <HelpCircle className="w-5 h-5 text-muted-foreground" />
-        </Button>
-
-        {/* Notifications */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-10 w-10 rounded-lg hover:bg-secondary relative">
-              <Bell className="w-5 h-5 text-muted-foreground" />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80 bg-popover border border-border">
-            <DropdownMenuLabel>Notificações</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <div className="p-4 text-center text-sm text-muted-foreground">
-              Nenhuma notificação no momento
-            </div>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        {/* Divider */}
-        <div className="w-px h-8 bg-border" />
-
-        {/* Profile */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-3 p-2 rounded-lg hover:bg-secondary transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20">
@@ -108,12 +77,6 @@ export default function Header() {
               <Link to="/conta" className="flex items-center gap-2 cursor-pointer">
                 <User className="w-4 h-4" />
                 <span>Minha Conta</span>
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link to="/configuracoes" className="flex items-center gap-2 cursor-pointer">
-                <Settings className="w-4 h-4" />
-                <span>Configurações</span>
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />

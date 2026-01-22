@@ -8,7 +8,6 @@ import {
   Moon,
   Sun,
   Monitor,
-  Settings,
   ChevronRight
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
@@ -22,7 +21,6 @@ import {
 import { useTheme } from "@/hooks/use-theme";
 import { Button } from "../ui/button";
 import logo from '../../../public/logo.jpeg';
-import logoOletv from '@/assets/logo-oletv.png';
 
 export default function Sidebar() {
   const { logout }: any = useContext(AuthContext);
@@ -68,12 +66,6 @@ export default function Sidebar() {
       link: "/conta",
       description: "Perfil e configurações"
     },
-    { 
-      icon: Settings, 
-      name: "Configurações", 
-      link: "/configuracoes",
-      description: "Preferências do sistema"
-    },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -85,17 +77,13 @@ export default function Sidebar() {
       {/* Logo Header */}
       <div className="p-5 border-b border-slate-800">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg overflow-hidden bg-white/10">
+          <div className="w-10 h-10 rounded-lg overflow-hidden bg-white/10">
             <img src={logo} alt="SysProv" className="w-full h-full object-cover" />
           </div>
-          <span className="text-slate-500 text-sm">+</span>
-          <div className="w-9 h-9 rounded-lg overflow-hidden bg-white/90 flex items-center justify-center p-1">
-            <img src={logoOletv} alt="Olé TV" className="w-full h-full object-contain" />
+          <div>
+            <h1 className="text-sm font-semibold text-white">SysProv</h1>
+            <p className="text-xs text-slate-500">Sistema de Integração</p>
           </div>
-        </div>
-        <div className="mt-3">
-          <h1 className="text-sm font-semibold text-white">Sistema de Integração</h1>
-          <p className="text-xs text-slate-500">ERP + Olé TV</p>
         </div>
       </div>
 
