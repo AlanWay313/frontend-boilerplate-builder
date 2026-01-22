@@ -67,17 +67,25 @@ export function StatusPieChart({ filters }: StatusPieChartProps) {
     fetchData()
   }, [integrador, filters])
 
-  const total = data.reduce((sum, item) => sum + item.value, 0)
+  // Total é apenas ativos + inativos (sem cancelados), alinhado com o Total de Clientes
+  const ativosValue = data.find(d => d.name === 'Ativos')?.value || 0
+  const inativosValue = data.find(d => d.name === 'Inativos')?.value || 0
+  const total = ativosValue + inativosValue
+
+  // Formatar números com separadores
+  const formatNumber = (num: number) => num.toLocaleString('pt-BR')
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const item = payload[0].payload
-      const percentage = total > 0 ? ((item.value / total) * 100).toFixed(1) : "0"
+      // Calcular porcentagem sobre total geral (incluindo cancelados para o gráfico)
+      const graphTotal = data.reduce((sum, d) => sum + d.value, 0)
+      const percentage = graphTotal > 0 ? ((item.value / graphTotal) * 100).toFixed(1) : "0"
       return (
         <div className="bg-card border border-border rounded-lg p-3 shadow-elevated">
           <p className="font-semibold text-foreground">{item.name}</p>
           <p className="text-sm text-muted-foreground">
-            {item.value} clientes ({percentage}%)
+            {formatNumber(item.value)} clientes ({percentage}%)
           </p>
         </div>
       )
@@ -150,17 +158,17 @@ export function StatusPieChart({ filters }: StatusPieChartProps) {
                   height={36}
                   formatter={(value, entry: any) => (
                     <span className="text-sm text-muted-foreground">
-                      {value} ({entry.payload.value})
+                      {value} ({formatNumber(entry.payload.value)})
                     </span>
                   )}
                 />
               </PieChart>
             </ResponsiveContainer>
             
-            {/* Center text - positioned correctly within the chart */}
+            {/* Center text - Total de clientes na base (ativos + inativos) */}
             <div className="absolute top-[45%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
-              <p className="text-xl font-bold text-foreground">{total}</p>
-              <p className="text-[10px] text-muted-foreground">Total</p>
+              <p className="text-xl font-bold text-foreground">{formatNumber(total)}</p>
+              <p className="text-[10px] text-muted-foreground">Na base</p>
             </div>
           </div>
         )}
