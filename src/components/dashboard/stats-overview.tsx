@@ -57,7 +57,7 @@ export function StatsOverview() {
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <StatCard
         title="Total de Clientes"
-        description="Clientes cadastrados"
+        description="Cadastrados na base"
         value={stats.total}
         icon={<Users className="h-6 w-6" />}
         variant="primary"
@@ -67,7 +67,7 @@ export function StatsOverview() {
       
       <StatCard
         title="Clientes Ativos"
-        description="Com acesso ao sistema"
+        description="Possuem contrato ativo"
         value={stats.ativos}
         icon={<UserCheck className="h-6 w-6" />}
         variant="success"
@@ -77,7 +77,7 @@ export function StatsOverview() {
       
       <StatCard
         title="Clientes Inativos"
-        description="Sem acesso ao sistema"
+        description="Sem contrato na integração"
         value={stats.inativos}
         icon={<UserX className="h-6 w-6" />}
         variant="warning"
