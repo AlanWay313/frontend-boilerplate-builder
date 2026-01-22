@@ -9,11 +9,12 @@ import {
   ResponsiveContainer,
 } from "recharts"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { TrendingUp, ArrowUp, ArrowDown, Users } from "lucide-react"
+import { TrendingUp, ArrowUp, ArrowDown, Users, Database } from "lucide-react"
 import useIntegrador from "@/hooks/use-integrador"
 import { TotalClienteDash } from "@/services/totalclientes"
 import { ClientesCanceladosApi } from "@/services/clientesCancelados"
 import { DashboardFilters } from "../dashboard-filters-context"
+import { useClientsHistory } from "@/hooks/use-clients-history"
 
 interface MonthlyData {
   month: string
@@ -37,6 +38,7 @@ export function ClientsChart({ filters }: ClientsChartProps) {
   const [stats, setStats] = useState<Stats>({ ativos: 0, inativos: 0, cancelados: 0, total: 0 })
   const [isLoading, setIsLoading] = useState(true)
   const integrador = useIntegrador()
+  const { saveSnapshot, getChartData, hasHistory, calculateNewClients } = useClientsHistory()
 
   useEffect(() => {
     async function fetchData() {
@@ -49,51 +51,54 @@ export function ClientsChart({ filters }: ClientsChartProps) {
           ClientesCanceladosApi(integrador),
         ])
 
-        let ativos = Number(clientesData?.nao_nulos || 0)
-        let inativos = Number(clientesData?.nulos || 0)
-        let cancelados = canceladosData?.length || 0
+        const ativos = Number(clientesData?.nao_nulos || 0)
+        const inativos = Number(clientesData?.nulos || 0)
+        const cancelados = canceladosData?.length || 0
 
-        // Aplicar filtro de status
+        // Salvar snapshot atual no histórico (sempre salva dados reais, ignora filtros)
+        saveSnapshot({ ativos, inativos, cancelados })
+
+        // Aplicar filtro de status para exibição
+        let displayAtivos = ativos
+        let displayInativos = inativos
+        let displayCancelados = cancelados
+
         if (filters?.status && filters.status !== "todos") {
           if (filters.status === "ativos") {
-            inativos = 0
-            cancelados = 0
+            displayInativos = 0
+            displayCancelados = 0
           } else if (filters.status === "inativos") {
-            ativos = 0
-            cancelados = 0
+            displayAtivos = 0
+            displayCancelados = 0
           } else if (filters.status === "cancelados") {
-            ativos = 0
-            inativos = 0
+            displayAtivos = 0
+            displayInativos = 0
           }
         }
 
         setStats({
-          ativos,
-          inativos,
-          cancelados,
-          total: ativos + inativos,
+          ativos: displayAtivos,
+          inativos: displayInativos,
+          cancelados: displayCancelados,
+          total: displayAtivos + displayInativos,
         })
 
-        // Gera dados mensais baseados nos valores reais
-        const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
-        const currentMonth = new Date().getMonth()
+        // Usar dados do histórico real
+        const historicalData = getChartData()
         
-        // Simula evolução baseada no total real atual
-        const monthlyData = months.slice(0, currentMonth + 1).map((month, index) => {
-          const baseAtivos = Math.max(10, ativos - ((currentMonth - index) * Math.floor(ativos * 0.05)))
-          return {
-            month,
-            ativos: Math.min(ativos, baseAtivos + Math.floor(Math.random() * 5)),
-            novos: Math.floor(5 + Math.random() * 10),
-          }
-        })
-        
-        // Garante que o último mês tenha o valor real
-        if (monthlyData.length > 0) {
-          monthlyData[monthlyData.length - 1].ativos = ativos
+        if (historicalData.length > 0) {
+          setData(historicalData)
+        } else {
+          // Se não há histórico ainda, mostrar apenas o mês atual
+          const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+          const now = new Date()
+          const monthLabel = `${monthNames[now.getMonth()]}/${String(now.getFullYear()).slice(-2)}`
+          setData([{
+            month: monthLabel,
+            ativos: ativos,
+            novos: 0,
+          }])
         }
-
-        setData(monthlyData)
       } catch (error) {
         console.error("Erro ao buscar dados:", error)
       } finally {
@@ -102,10 +107,11 @@ export function ClientsChart({ filters }: ClientsChartProps) {
     }
 
     fetchData()
-  }, [integrador, filters])
+  }, [integrador, filters, saveSnapshot, getChartData])
 
+  const formatNumber = (num: number) => num.toLocaleString('pt-BR')
   const retencao = stats.total > 0 ? ((stats.ativos / stats.total) * 100).toFixed(1) : "0"
-  const novosTotal = data.reduce((acc, curr) => acc + curr.novos, 0)
+  const novosUltimoMes = calculateNewClients(stats.ativos)
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -121,7 +127,7 @@ export function ClientsChart({ filters }: ClientsChartProps) {
                 />
                 <span className="text-muted-foreground">{entry.name}</span>
               </div>
-              <span className="font-semibold text-foreground">{entry.value}</span>
+              <span className="font-semibold text-foreground">{formatNumber(entry.value)}</span>
             </div>
           ))}
         </div>
@@ -141,9 +147,16 @@ export function ClientsChart({ filters }: ClientsChartProps) {
             </CardTitle>
             <CardDescription className="flex items-center gap-2">
               Acompanhamento mensal da base de clientes
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning/10 text-warning font-medium">
-                Dados estimados
-              </span>
+              {hasHistory ? (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-success/10 text-success font-medium flex items-center gap-1">
+                  <Database className="w-3 h-3" />
+                  Dados reais
+                </span>
+              ) : (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning/10 text-warning font-medium">
+                  Coletando dados...
+                </span>
+              )}
             </CardDescription>
           </div>
           <div className="flex items-center gap-3">
@@ -162,7 +175,7 @@ export function ClientsChart({ filters }: ClientsChartProps) {
           <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-xl p-4 border border-primary/20">
             <p className="text-sm text-muted-foreground mb-1">Total Ativos</p>
             <p className="text-2xl font-bold text-primary">
-              {isLoading ? "..." : stats.ativos}
+              {isLoading ? "..." : formatNumber(stats.ativos)}
             </p>
             <div className="flex items-center gap-1 mt-1 text-xs text-success">
               <Users className="w-3 h-3" />
@@ -170,13 +183,13 @@ export function ClientsChart({ filters }: ClientsChartProps) {
             </div>
           </div>
           <div className="bg-gradient-to-br from-success/10 to-success/5 rounded-xl p-4 border border-success/20">
-            <p className="text-sm text-muted-foreground mb-1">Novos no Período</p>
+            <p className="text-sm text-muted-foreground mb-1">Novos este mês</p>
             <p className="text-2xl font-bold text-success">
-              {isLoading ? "..." : `~${novosTotal}`}
+              {isLoading ? "..." : novosUltimoMes > 0 ? `+${formatNumber(novosUltimoMes)}` : "—"}
             </p>
-            <div className="flex items-center gap-1 mt-1 text-xs text-warning">
+            <div className="flex items-center gap-1 mt-1 text-xs text-success">
               <ArrowUp className="w-3 h-3" />
-              <span>Estimativa</span>
+              <span>{hasHistory ? "vs mês anterior" : "Aguardando histórico"}</span>
             </div>
           </div>
           <div className="bg-gradient-to-br from-accent/10 to-accent/5 rounded-xl p-4 border border-accent/20">
@@ -186,7 +199,7 @@ export function ClientsChart({ filters }: ClientsChartProps) {
             </p>
             <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
               <ArrowDown className="w-3 h-3" />
-              <span>{stats.inativos} sem contrato</span>
+              <span>{formatNumber(stats.inativos)} sem contrato</span>
             </div>
           </div>
         </div>
@@ -195,6 +208,17 @@ export function ClientsChart({ filters }: ClientsChartProps) {
           {isLoading ? (
             <div className="h-full flex items-center justify-center text-muted-foreground">
               Carregando dados...
+            </div>
+          ) : data.length === 1 ? (
+            <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
+              <Database className="w-12 h-12 mb-4 opacity-50" />
+              <p className="text-center">
+                <span className="block font-medium text-foreground">Coletando histórico</span>
+                <span className="text-sm">O gráfico será populado conforme os meses passarem</span>
+              </p>
+              <p className="text-xs mt-2 text-muted-foreground/70">
+                Mês atual: {formatNumber(stats.ativos)} ativos
+              </p>
             </div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
@@ -220,6 +244,7 @@ export function ClientsChart({ filters }: ClientsChartProps) {
                   axisLine={false}
                   tickLine={false}
                   tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                  tickFormatter={(value) => formatNumber(value)}
                 />
                 <Tooltip content={<CustomTooltip />} cursor={{ fill: 'hsl(var(--muted))', opacity: 0.3 }} />
                 <Bar
