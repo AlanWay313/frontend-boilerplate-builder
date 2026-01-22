@@ -161,7 +161,9 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
         const clienteId = log.id_cliente || '';
         const clienteNome = log.nome_cliente || log.cliente_nome || '';
         
-        // Detectar novo cliente
+        // FILTRO PRINCIPAL: Apenas cadastros e erros
+        
+        // 1. Novo cliente cadastrado
         if (newClientPatterns.some(p => p.test(text)) || codeLog === 'success') {
           addNotification({
             type: 'new_client',
@@ -172,24 +174,16 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
             data: { ...log, clienteId, clienteNome },
           });
         }
-        // Notificar erros
+        // 2. Erros (CEP, endereço, financeiro, bloqueio, etc.)
         else if (codeLog === 'error') {
           addNotification({
             type: 'error',
-            title: clienteNome ? `Erro: ${clienteNome}` : 'Erro no Sistema',
-            message: log.title || log.acao?.substring(0, 100) || 'Ocorreu um erro',
+            title: clienteNome ? `Erro: ${clienteNome}` : 'Erro de Integração',
+            message: log.title || log.acao?.substring(0, 100) || 'Erro detectado',
             data: { ...log, clienteId, clienteNome },
           });
         }
-        // Notificar avisos importantes
-        else if (codeLog === 'warning') {
-          addNotification({
-            type: 'warning',
-            title: clienteNome ? `Aviso: ${clienteNome}` : 'Aviso',
-            message: log.title || log.acao?.substring(0, 100) || 'Novo aviso',
-            data: { ...log, clienteId, clienteNome },
-          });
-        }
+        // Ignorar todos os outros tipos (warning, info, etc.)
       });
 
       // Atualizar última verificação
