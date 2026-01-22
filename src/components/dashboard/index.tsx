@@ -33,6 +33,20 @@ export function Dashboard() {
     setTimeout(() => setIsRefreshing(false), 1000);
   };
 
+  // Formatar status do cliente
+  const formatarStatus = (cliente: any): string => {
+    if (!cliente.ole_contract_number || cliente.ole_contract_number.toString().trim() === '') {
+      return 'Sem Contrato';
+    }
+    if (!cliente.voalle_contract_status || cliente.voalle_contract_status.trim() === '') {
+      return 'Sem Status';
+    }
+    const status = cliente.voalle_contract_status.toLowerCase();
+    if (status === 'normal') return 'Ativo';
+    if (status === 'cancelado') return 'Cancelado';
+    return cliente.voalle_contract_status;
+  };
+
   const handleExport = async (type: ExportType) => {
     if (!integrador) return;
     
@@ -73,8 +87,14 @@ export function Dashboard() {
           filename = 'clientes_todos';
       }
 
-      if (filteredClientes.length > 0) {
-        exportToCSV(filteredClientes, filename, clienteExportColumns);
+      // Formatar status para exportação
+      const clientesFormatados = filteredClientes.map((c: any) => ({
+        ...c,
+        voalle_contract_status: formatarStatus(c)
+      }));
+
+      if (clientesFormatados.length > 0) {
+        exportToCSV(clientesFormatados, filename, clienteExportColumns);
       } else {
         alert('Não há dados para exportar com o filtro selecionado.');
       }
