@@ -13,6 +13,7 @@ import { TrendingUp, ArrowUp, ArrowDown, Users } from "lucide-react"
 import useIntegrador from "@/hooks/use-integrador"
 import { TotalClienteDash } from "@/services/totalclientes"
 import { ClientesCanceladosApi } from "@/services/clientesCancelados"
+import { DashboardFilters } from "../dashboard-filters-context"
 
 interface MonthlyData {
   month: string
@@ -27,7 +28,11 @@ interface Stats {
   total: number
 }
 
-export function ClientsChart() {
+interface ClientsChartProps {
+  filters?: DashboardFilters
+}
+
+export function ClientsChart({ filters }: ClientsChartProps) {
   const [data, setData] = useState<MonthlyData[]>([])
   const [stats, setStats] = useState<Stats>({ ativos: 0, inativos: 0, cancelados: 0, total: 0 })
   const [isLoading, setIsLoading] = useState(true)
@@ -44,9 +49,23 @@ export function ClientsChart() {
           ClientesCanceladosApi(integrador),
         ])
 
-        const ativos = Number(clientesData?.nao_nulos || 0)
-        const inativos = Number(clientesData?.nulos || 0)
-        const cancelados = canceladosData?.length || 0
+        let ativos = Number(clientesData?.nao_nulos || 0)
+        let inativos = Number(clientesData?.nulos || 0)
+        let cancelados = canceladosData?.length || 0
+
+        // Aplicar filtro de status
+        if (filters?.status && filters.status !== "todos") {
+          if (filters.status === "ativos") {
+            inativos = 0
+            cancelados = 0
+          } else if (filters.status === "inativos") {
+            ativos = 0
+            cancelados = 0
+          } else if (filters.status === "cancelados") {
+            ativos = 0
+            inativos = 0
+          }
+        }
 
         setStats({
           ativos,
@@ -59,9 +78,29 @@ export function ClientsChart() {
         const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
         const currentMonth = new Date().getMonth()
         
+        // Aplica filtro de período
+        let monthsToShow = currentMonth + 1
+        if (filters?.periodo) {
+          switch (filters.periodo) {
+            case "7dias":
+              monthsToShow = 1
+              break
+            case "30dias":
+              monthsToShow = 1
+              break
+            case "90dias":
+              monthsToShow = 3
+              break
+            case "ano":
+              monthsToShow = currentMonth + 1
+              break
+          }
+        }
+        
         // Simula evolução baseada no total real atual
-        const monthlyData = months.slice(0, currentMonth + 1).map((month, index) => {
-          const baseAtivos = Math.max(10, ativos - ((currentMonth - index) * Math.floor(ativos * 0.05)))
+        const startMonth = Math.max(0, currentMonth + 1 - monthsToShow)
+        const monthlyData = months.slice(startMonth, currentMonth + 1).map((month, index) => {
+          const baseAtivos = Math.max(10, ativos - ((monthsToShow - 1 - index) * Math.floor(ativos * 0.05)))
           return {
             month,
             ativos: Math.min(ativos, baseAtivos + Math.floor(Math.random() * 5)),
@@ -83,7 +122,7 @@ export function ClientsChart() {
     }
 
     fetchData()
-  }, [integrador])
+  }, [integrador, filters])
 
   const retencao = stats.total > 0 ? ((stats.ativos / stats.total) * 100).toFixed(1) : "0"
   const novosTotal = data.reduce((acc, curr) => acc + curr.novos, 0)
