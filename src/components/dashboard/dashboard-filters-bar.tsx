@@ -1,4 +1,4 @@
-import { Filter, X, Calendar, Users } from "lucide-react"
+import { Filter, X, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -23,27 +23,13 @@ const statusOptions = [
   { value: "cancelados", label: "Cancelados" },
 ]
 
-const periodoOptions = [
-  { value: "todos", label: "Todo o Período" },
-  { value: "hoje", label: "Hoje" },
-  { value: "7dias", label: "Últimos 7 dias" },
-  { value: "30dias", label: "Últimos 30 dias" },
-  { value: "90dias", label: "Últimos 90 dias" },
-  { value: "ano", label: "Este ano" },
-]
-
 export function DashboardFiltersBar({ filters, onFiltersChange }: DashboardFiltersBarProps) {
   const activeFiltersCount = [
     filters.status !== "todos",
-    filters.periodo !== "todos",
   ].filter(Boolean).length
 
   const handleStatusChange = (value: string) => {
     onFiltersChange({ ...filters, status: value })
-  }
-
-  const handlePeriodoChange = (value: string) => {
-    onFiltersChange({ ...filters, periodo: value })
   }
 
   const handleClearFilters = () => {
@@ -52,10 +38,6 @@ export function DashboardFiltersBar({ filters, onFiltersChange }: DashboardFilte
 
   const getStatusLabel = () => {
     return statusOptions.find(opt => opt.value === filters.status)?.label || "Status"
-  }
-
-  const getPeriodoLabel = () => {
-    return periodoOptions.find(opt => opt.value === filters.periodo)?.label || "Período"
   }
 
   return (
@@ -85,38 +67,6 @@ export function DashboardFiltersBar({ filters, onFiltersChange }: DashboardFilte
             >
               {option.label}
               {filters.status === option.value && (
-                <span className="ml-auto">✓</span>
-              )}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      {/* Periodo Filter */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button 
-            variant={filters.periodo !== "todos" ? "default" : "outline"} 
-            size="sm" 
-            className="gap-2"
-          >
-            <Calendar className="h-4 w-4" />
-            {getPeriodoLabel()}
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-48 bg-popover border border-border">
-          <DropdownMenuLabel className="text-xs text-muted-foreground">
-            Filtrar por Período
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          {periodoOptions.map((option) => (
-            <DropdownMenuItem
-              key={option.value}
-              onClick={() => handlePeriodoChange(option.value)}
-              className={`cursor-pointer ${filters.periodo === option.value ? 'bg-primary/10 text-primary' : ''}`}
-            >
-              {option.label}
-              {filters.periodo === option.value && (
                 <span className="ml-auto">✓</span>
               )}
             </DropdownMenuItem>

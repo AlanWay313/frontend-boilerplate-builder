@@ -2,8 +2,8 @@ import { useEffect, useState } from "react"
 import { Users, UserCheck, UserX, XCircle } from "lucide-react"
 import { StatCard } from "@/components/ui/stat-card"
 import useIntegrador from "@/hooks/use-integrador"
-import { ListarTodosClientes } from "@/services/listarTodosClientes"
-import { filterByPeriodo } from "@/lib/date-filter-utils"
+import { TotalClienteDash } from "@/services/totalclientes"
+import { ClientesCanceladosApi } from "@/services/clientesCancelados"
 import { DashboardFilters } from "./dashboard-filters-context"
 import { CanceladosModal } from "./modals/cancelados-modal"
 import { InativosModal } from "./modals/inativos-modal"
@@ -37,40 +37,14 @@ export function StatsOverview({ filters }: StatsOverviewProps) {
       
       setIsLoading(true)
       try {
-        const todosClientes = await ListarTodosClientes(integrador)
+        const [clientesData, canceladosData] = await Promise.all([
+          TotalClienteDash(integrador),
+          ClientesCanceladosApi(integrador),
+        ])
 
-        // DEBUG: Verificar campos disponíveis na API
-        if (todosClientes.length > 0) {
-          console.log("=== DEBUG API - Campos disponíveis ===")
-          console.log("Primeiro cliente (todos os campos):", todosClientes[0])
-          console.log("Campos do objeto:", Object.keys(todosClientes[0]))
-          console.log("Total de clientes:", todosClientes.length)
-        }
-
-        // Aplicar filtro de período usando created_at
-        const clientesFiltrados = filterByPeriodo(todosClientes, filters?.periodo || "todos")
-        console.log("Clientes após filtro de período:", clientesFiltrados.length, "período:", filters?.periodo)
-
-        // Calcular contagens por status
-        let ativos = 0
-        let inativos = 0
-        let cancelados = 0
-
-        clientesFiltrados.forEach((cliente: any) => {
-          const status = cliente.voalle_contract_status?.toLowerCase()
-          const temContrato = cliente.ole_contract_number && cliente.ole_contract_number.toString().trim() !== ''
-
-          if (status === 'cancelado') {
-            cancelados++
-          } else if (!temContrato) {
-            inativos++
-          } else if (status === 'normal') {
-            ativos++
-          } else {
-            if (temContrato) ativos++
-            else inativos++
-          }
-        })
+        let ativos = Number(clientesData?.nao_nulos || 0)
+        let inativos = Number(clientesData?.nulos || 0)
+        let cancelados = canceladosData?.length || 0
 
         // Aplicar filtro de status
         if (filters?.status && filters.status !== "todos") {
