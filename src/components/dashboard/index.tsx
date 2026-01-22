@@ -5,11 +5,14 @@ import { ClientsChart } from './charts/clients-chart';
 import { StatusPieChart } from './charts/status-pie-chart';
 import { WeeklyBarChart } from './charts/bar-chart';
 import { Button } from '@/components/ui/button';
+import { DashboardFiltersBar } from './dashboard-filters-bar';
+import { DashboardFilters, defaultFilters } from './dashboard-filters-context';
 
 export function Dashboard() {
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'wide'>('grid');
   const [isExpanded, setIsExpanded] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [filters, setFilters] = useState<DashboardFilters>(defaultFilters);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
@@ -93,6 +96,11 @@ export function Dashboard() {
           </div>
         </div>
 
+        {/* Filters Bar */}
+        <div className="mt-4 pt-4 border-t border-border">
+          <DashboardFiltersBar filters={filters} onFiltersChange={setFilters} />
+        </div>
+
         {/* Status Indicators */}
         <div className="mt-4 flex items-center gap-4">
           <div className="flex items-center gap-2">
@@ -110,7 +118,7 @@ export function Dashboard() {
       </div>
 
       {/* Stats Cards */}
-      <StatsOverview />
+      <StatsOverview filters={filters} />
 
       {/* Charts Grid */}
       <div className={`
@@ -120,13 +128,13 @@ export function Dashboard() {
         ${viewMode === 'grid' ? 'grid-cols-1 lg:grid-cols-2 xl:grid-cols-3' : ''}
       `}>
         <div className={viewMode === 'grid' ? 'lg:col-span-2' : ''}>
-          <ClientsChart />
+          <ClientsChart filters={filters} />
         </div>
         
-        <StatusPieChart />
+        <StatusPieChart filters={filters} />
         
         <div className={viewMode === 'grid' ? 'xl:col-span-2' : ''}>
-          <WeeklyBarChart />
+          <WeeklyBarChart filters={filters} />
         </div>
       </div>
     </div>

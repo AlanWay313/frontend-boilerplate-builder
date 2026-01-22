@@ -6,13 +6,19 @@ import { TotalClienteDash } from "@/services/totalclientes"
 import { ClientesCanceladosApi } from "@/services/clientesCancelados"
 
 const COLORS = [
-  'hsl(var(--primary))',
   'hsl(var(--success))',
   'hsl(var(--warning))',
   'hsl(var(--destructive))',
 ]
 
-export function StatusPieChart() {
+interface StatusPieChartProps {
+  filters?: {
+    status?: string
+    periodo?: string
+  }
+}
+
+export function StatusPieChart({ filters }: StatusPieChartProps) {
   const [data, setData] = useState<{ name: string; value: number; color: string }[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const integrador = useIntegrador()
@@ -28,15 +34,29 @@ export function StatusPieChart() {
           ClientesCanceladosApi(integrador),
         ])
 
-        const ativos = Number(clientesData?.nao_nulos || 0)
-        const inativos = Number(clientesData?.nulos || 0)
-        const cancelados = canceladosData?.length || 0
+        let ativos = Number(clientesData?.nao_nulos || 0)
+        let inativos = Number(clientesData?.nulos || 0)
+        let cancelados = canceladosData?.length || 0
+
+        // Aplicar filtro de status se existir
+        if (filters?.status) {
+          if (filters.status === 'ativos') {
+            inativos = 0
+            cancelados = 0
+          } else if (filters.status === 'inativos') {
+            ativos = 0
+            cancelados = 0
+          } else if (filters.status === 'cancelados') {
+            ativos = 0
+            inativos = 0
+          }
+        }
 
         setData([
-          { name: 'Ativos', value: ativos, color: COLORS[1] },
-          { name: 'Inativos', value: inativos, color: COLORS[2] },
-          { name: 'Cancelados', value: cancelados, color: COLORS[3] },
-        ])
+          { name: 'Ativos', value: ativos, color: COLORS[0] },
+          { name: 'Inativos', value: inativos, color: COLORS[1] },
+          { name: 'Cancelados', value: cancelados, color: COLORS[2] },
+        ].filter(item => item.value > 0))
       } catch (error) {
         console.error("Erro ao buscar dados:", error)
       } finally {
@@ -45,14 +65,14 @@ export function StatusPieChart() {
     }
 
     fetchData()
-  }, [integrador])
+  }, [integrador, filters])
 
   const total = data.reduce((sum, item) => sum + item.value, 0)
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const item = payload[0].payload
-      const percentage = ((item.value / total) * 100).toFixed(1)
+      const percentage = total > 0 ? ((item.value / total) * 100).toFixed(1) : "0"
       return (
         <div className="bg-card border border-border rounded-lg p-3 shadow-elevated">
           <p className="font-semibold text-foreground">{item.name}</p>
@@ -99,17 +119,17 @@ export function StatusPieChart() {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
           </div>
         ) : (
-          <div className="h-[280px]">
+          <div className="h-[280px] relative">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={data}
                   cx="50%"
-                  cy="50%"
+                  cy="45%"
                   labelLine={false}
                   label={renderCustomizedLabel}
-                  outerRadius={100}
-                  innerRadius={50}
+                  outerRadius={90}
+                  innerRadius={45}
                   paddingAngle={2}
                   dataKey="value"
                   animationBegin={0}
@@ -136,16 +156,14 @@ export function StatusPieChart() {
                 />
               </PieChart>
             </ResponsiveContainer>
+            
+            {/* Center text - positioned correctly within the chart */}
+            <div className="absolute top-[45%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
+              <p className="text-xl font-bold text-foreground">{total}</p>
+              <p className="text-[10px] text-muted-foreground">Total</p>
+            </div>
           </div>
         )}
-        
-        {/* Center text */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ marginTop: '-40px' }}>
-          <div className="text-center">
-            <p className="text-2xl font-bold text-foreground">{total}</p>
-            <p className="text-xs text-muted-foreground">Total</p>
-          </div>
-        </div>
       </CardContent>
     </Card>
   )

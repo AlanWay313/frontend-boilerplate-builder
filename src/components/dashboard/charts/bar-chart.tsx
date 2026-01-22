@@ -9,24 +9,49 @@ import {
   ResponsiveContainer,
 } from "recharts"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { DashboardFilters } from "../dashboard-filters-context"
 
-// Simulated weekly data
-const generateWeeklyData = () => {
-  const days = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
-  
-  return days.map((day) => ({
-    day,
-    novos: Math.floor(Math.random() * 15 + 5),
-    cancelados: Math.floor(Math.random() * 5),
-  }))
+interface WeeklyBarChartProps {
+  filters?: DashboardFilters
 }
 
-export function WeeklyBarChart() {
+// Simulated weekly data
+const generateWeeklyData = (filters?: DashboardFilters) => {
+  const days = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
+  
+  // Ajusta dias baseado no filtro de período
+  let daysToShow = days
+  if (filters?.periodo === "hoje") {
+    daysToShow = [days[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1]]
+  } else if (filters?.periodo === "7dias") {
+    daysToShow = days
+  }
+  
+  return daysToShow.map((day) => {
+    let novos = Math.floor(Math.random() * 15 + 5)
+    let cancelados = Math.floor(Math.random() * 5)
+    
+    // Ajusta valores baseado no filtro de status
+    if (filters?.status === "ativos") {
+      cancelados = 0
+    } else if (filters?.status === "cancelados") {
+      novos = 0
+    }
+    
+    return {
+      day,
+      novos,
+      cancelados,
+    }
+  })
+}
+
+export function WeeklyBarChart({ filters }: WeeklyBarChartProps) {
   const [data, setData] = useState<any[]>([])
 
   useEffect(() => {
-    setData(generateWeeklyData())
-  }, [])
+    setData(generateWeeklyData(filters))
+  }, [filters])
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
