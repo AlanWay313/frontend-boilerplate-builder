@@ -42,9 +42,13 @@ export function StatsOverview({ filters }: StatsOverviewProps) {
           ClientesCanceladosApi(integrador),
         ])
 
-        let ativos = Number(clientesData?.nao_nulos || 0)
+        const totalBase = Number(clientesData?.nao_nulos || 0)
         let inativos = Number(clientesData?.nulos || 0)
         let cancelados = canceladosData?.length || 0
+        
+        // Clientes ativos = total base - inativos - cancelados
+        let ativos = Math.max(0, totalBase - inativos - cancelados)
+        let total = totalBase
 
         // Aplicar filtro de status
         if (filters?.status && filters.status !== "todos") {
@@ -61,7 +65,7 @@ export function StatsOverview({ filters }: StatsOverviewProps) {
         }
 
         setStats({
-          total: ativos + inativos,
+          total,
           ativos,
           inativos,
           cancelados,
