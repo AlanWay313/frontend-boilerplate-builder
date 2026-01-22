@@ -9,11 +9,12 @@ import {
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, X, UserX, Eye, RefreshCw, FileText, Mail } from "lucide-react"
+import { Search, X, UserX, Eye, RefreshCw, FileText, Mail, Download } from "lucide-react"
 import useIntegrador from "@/hooks/use-integrador"
 import api from "@/services/api"
 import LogIndividual from "@/components/logindividual"
 import ReintegrarCliente from "@/components/reintegrarcliente"
+import { exportToCSV, clienteExportColumns } from "@/lib/export-utils"
 
 interface InativosModalProps {
   open: boolean
@@ -237,6 +238,15 @@ export function InativosModal({ open, onOpenChange }: InativosModalProps) {
                     Limpar filtros
                   </Button>
                 )}
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => exportToCSV(clientesFiltrados, "clientes_inativos", clienteExportColumns)}
+                  className="gap-2"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Exportar CSV
+                </Button>
                 <Button variant="outline" size="sm" onClick={fetchClientes} className="gap-2">
                   <RefreshCw className="h-3.5 w-3.5" />
                   Atualizar

@@ -9,9 +9,10 @@ import {
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, X, Users, Mail, Phone, MapPin, FileText } from "lucide-react"
+import { Search, X, Users, Mail, Phone, MapPin, FileText, Download } from "lucide-react"
 import useIntegrador from "@/hooks/use-integrador"
 import api from "@/services/api"
+import { exportToCSV, clienteExportColumns } from "@/lib/export-utils"
 
 interface CanceladosModalProps {
   open: boolean
@@ -218,11 +219,22 @@ export function CanceladosModal({ open, onOpenChange }: CanceladosModalProps) {
                 ? `${data.length} clientes cancelados`
                 : `${clientesFiltrados.length} de ${data.length} clientes`}
             </span>
-            {busca && (
-              <Button variant="ghost" size="sm" onClick={limparBusca}>
-                Limpar filtros
+            <div className="flex items-center gap-2">
+              {busca && (
+                <Button variant="ghost" size="sm" onClick={limparBusca}>
+                  Limpar filtros
+                </Button>
+              )}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => exportToCSV(clientesFiltrados, "clientes_cancelados", clienteExportColumns)}
+                className="gap-2"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Exportar CSV
               </Button>
-            )}
+            </div>
           </div>
         )}
       </DialogContent>
