@@ -49,23 +49,21 @@ export function Dashboard() {
 
       switch (type) {
         case 'ativos':
-          // Ativos: tem contrato E status não é cancelado nem vazio
+          // Ativos: status é "Normal"
           filteredClientes = clientes.filter((c: any) => 
-            c.ole_contract_number && 
-            c.voalle_contract_status && 
-            c.voalle_contract_status.toLowerCase() !== 'cancelado'
+            c.voalle_contract_status?.toLowerCase() === 'normal'
           );
           filename = 'clientes_ativos';
           break;
         case 'inativos':
-          // Inativos: sem contrato OU status vazio
+          // Inativos: status vazio (sem contrato)
           filteredClientes = clientes.filter((c: any) => 
-            !c.ole_contract_number || !c.voalle_contract_status
+            !c.voalle_contract_status || c.voalle_contract_status.trim() === ''
           );
           filename = 'clientes_inativos';
           break;
         case 'cancelados':
-          // Cancelados: status é "cancelado" (case insensitive)
+          // Cancelados: status é "Cancelado"
           filteredClientes = clientes.filter((c: any) => 
             c.voalle_contract_status?.toLowerCase() === 'cancelado'
           );
