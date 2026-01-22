@@ -76,6 +76,9 @@ export function StatsOverview({ filters }: StatsOverviewProps) {
     fetchStats()
   }, [integrador, filters])
 
+  // Formatar números com separadores
+  const formatNumber = (num: number) => num.toLocaleString('pt-BR')
+
   // Determina quais cards mostrar baseado no filtro
   const showAll = !filters?.status || filters.status === "todos"
   const showAtivos = showAll || filters?.status === "ativos"
@@ -93,7 +96,7 @@ export function StatsOverview({ filters }: StatsOverviewProps) {
             title="Total de Clientes"
             description="Cadastrados na base"
             tooltip="Soma de todos os clientes registrados no sistema, independente do status do contrato"
-            value={stats.total}
+            value={formatNumber(stats.total)}
             icon={<Users className="h-6 w-6" />}
             variant="primary"
             isLoading={isLoading}
@@ -105,7 +108,7 @@ export function StatsOverview({ filters }: StatsOverviewProps) {
             title="Clientes Ativos"
             description="Possuem contrato ativo"
             tooltip="Clientes que possuem um contrato ativo na integração e podem acessar os serviços"
-            value={stats.ativos}
+            value={formatNumber(stats.ativos)}
             icon={<UserCheck className="h-6 w-6" />}
             variant="success"
             isLoading={isLoading}
@@ -117,7 +120,7 @@ export function StatsOverview({ filters }: StatsOverviewProps) {
             title="Clientes Inativos"
             description="Sem contrato na integração"
             tooltip="Clientes cadastrados na base mas que não possuem um contrato ativo vinculado. Clique no ícone para ver detalhes e reintegrar."
-            value={stats.inativos}
+            value={formatNumber(stats.inativos)}
             icon={<UserX className="h-6 w-6" />}
             variant="warning"
             isLoading={isLoading}
@@ -130,7 +133,7 @@ export function StatsOverview({ filters }: StatsOverviewProps) {
             title="Cancelados"
             description="Contratos cancelados"
             tooltip="Clientes que tiveram seus contratos cancelados e não utilizam mais os serviços. Clique no ícone para ver a lista completa."
-            value={stats.cancelados}
+            value={formatNumber(stats.cancelados)}
             icon={<XCircle className="h-6 w-6" />}
             variant="destructive"
             isLoading={isLoading}
