@@ -1,9 +1,45 @@
 // Serviço de Sincronização: Olé TV → Banco Local
 // Responsável por buscar dados da API Olé TV e persistir no MySQL
+// Baseado na documentação oficial: /api-docs
+// Inclui rate limiting e delay entre chamadas para evitar bloqueio
 
 import { OleApiService } from './ole-api.service';
 import prisma from '../lib/prisma';
 import { logger } from '../lib/logger';
+
+// ==========================================
+// CONFIGURAÇÕES DE RATE LIMITING E PERFORMANCE
+// ==========================================
+
+// Modos de sincronização: 'fast' para alta performance, 'safe' para evitar rate limit
+type SyncMode = 'fast' | 'safe';
+
+const RATE_LIMIT_PROFILES = {
+  // Modo rápido: para APIs que aguentam mais carga (17k+ clientes)
+  fast: {
+    DELAY_BETWEEN_CALLS: 50,        // 50ms entre chamadas
+    DELAY_BETWEEN_BATCHES: 200,     // 200ms entre lotes
+    BATCH_SIZE: 100,                // 100 clientes por lote
+    PARALLEL_REQUESTS: 10,          // 10 requests simultâneos
+    MAX_RETRIES: 5,
+    INITIAL_RETRY_DELAY: 1000,
+    MAX_RETRY_DELAY: 60000,
+  },
+  // Modo seguro: para evitar rate limiting
+  safe: {
+    DELAY_BETWEEN_CALLS: 200,       // 200ms entre chamadas
+    DELAY_BETWEEN_BATCHES: 500,     // 500ms entre lotes
+    BATCH_SIZE: 25,                 // 25 clientes por lote
+    PARALLEL_REQUESTS: 5,           // 5 requests simultâneos
+    MAX_RETRIES: 3,
+    INITIAL_RETRY_DELAY: 2000,
+    MAX_RETRY_DELAY: 30000,
+  },
+};
+
+// Configuração ativa (pode ser alterada via ENV ou parâmetro)
+const SYNC_MODE: SyncMode = (process.env.SYNC_MODE as SyncMode) || 'fast';
+const RATE_LIMIT_CONFIG = RATE_LIMIT_PROFILES[SYNC_MODE];
 
 // ==========================================
 // TIPOS E INTERFACES
@@ -16,6 +52,9 @@ interface SyncResult {
   failed: number;
   errors: string[];
   duration: number;
+  // Contadores extras para relacionamentos
+  assinaturas?: number;
+  equipamentos?: number;
 }
 
 interface FullSyncResult {
@@ -52,7 +91,146 @@ export class SyncFromOleService {
   }
 
   // ==========================================
+  // UTILITÁRIOS DE RATE LIMITING
+  // ==========================================
+
+  /**
+   * Aguarda um tempo especificado (delay)
+   */
+  private async delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Executa uma função com retry e backoff exponencial
+   */
+  private async withRetry<T>(
+    fn: () => Promise<T>,
+    context: string,
+    maxRetries: number = RATE_LIMIT_CONFIG.MAX_RETRIES
+  ): Promise<T> {
+    let lastError: Error | null = null;
+    let retryDelay = RATE_LIMIT_CONFIG.INITIAL_RETRY_DELAY;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await fn();
+      } catch (error: any) {
+        lastError = error;
+        
+        // Verifica se é erro de rate limit (429) ou timeout
+        const isRateLimited = error.response?.status === 429 || 
+                              error.message?.includes('rate limit') ||
+                              error.message?.includes('too many requests');
+        
+        if (isRateLimited && attempt < maxRetries) {
+          logger.warn(`⏳ Rate limit detectado em ${context}. Tentativa ${attempt}/${maxRetries}. Aguardando ${retryDelay}ms...`);
+          await this.delay(retryDelay);
+          
+          // Backoff exponencial com limite máximo
+          retryDelay = Math.min(retryDelay * 2, RATE_LIMIT_CONFIG.MAX_RETRY_DELAY);
+        } else if (attempt < maxRetries) {
+          logger.warn(`⚠️ Erro em ${context}. Tentativa ${attempt}/${maxRetries}. Aguardando ${retryDelay}ms...`);
+          await this.delay(retryDelay);
+        }
+      }
+    }
+
+    throw lastError || new Error(`Falha após ${maxRetries} tentativas: ${context}`);
+  }
+
+  /**
+   * Processa itens em lotes com PARALELISMO dentro de cada lote
+   * Otimizado para alto volume (17k+ registros)
+   */
+  private async processInBatches<T, R>(
+    items: T[],
+    processor: (item: T, index: number) => Promise<R>,
+    batchSize: number = RATE_LIMIT_CONFIG.BATCH_SIZE,
+    entityName: string = 'itens'
+  ): Promise<{ results: R[]; errors: string[] }> {
+    const results: R[] = [];
+    const errors: string[] = [];
+    const totalBatches = Math.ceil(items.length / batchSize);
+    const parallelLimit = RATE_LIMIT_CONFIG.PARALLEL_REQUESTS;
+
+    logger.info(`⚡ Modo: ${SYNC_MODE.toUpperCase()} | Batch: ${batchSize} | Paralelo: ${parallelLimit}`);
+
+    for (let i = 0; i < items.length; i += batchSize) {
+      const batch = items.slice(i, i + batchSize);
+      const batchNumber = Math.floor(i / batchSize) + 1;
+
+      // Log do lote atual
+      logger.syncBatch(batchNumber, totalBatches, batch.length);
+
+      // Processa o lote com paralelismo controlado
+      const batchResults = await this.processWithConcurrency(
+        batch,
+        async (item, localIndex) => {
+          const globalIndex = i + localIndex;
+          try {
+            const result = await processor(item, globalIndex);
+            
+            // Atualiza progresso a cada 10 itens para não sobrecarregar o console
+            if ((globalIndex + 1) % 10 === 0 || globalIndex + 1 === items.length) {
+              logger.syncProgress(entityName, globalIndex + 1, items.length);
+            }
+            
+            return { success: true, result };
+          } catch (error: any) {
+            return { success: false, error: error.message || 'Erro desconhecido' };
+          }
+        },
+        parallelLimit
+      );
+
+      // Coleta resultados e erros
+      for (const res of batchResults) {
+        if (res.success) {
+          results.push(res.result);
+        } else {
+          errors.push(res.error);
+        }
+      }
+
+      // Delay entre lotes (exceto no último)
+      if (i + batchSize < items.length) {
+        await this.delay(RATE_LIMIT_CONFIG.DELAY_BETWEEN_BATCHES);
+      }
+    }
+
+    console.log(''); // Nova linha final
+    return { results, errors };
+  }
+
+  /**
+   * Processa array com limite de concorrência (semáforo)
+   * Evita abrir milhares de conexões simultâneas
+   */
+  private async processWithConcurrency<T, R>(
+    items: T[],
+    processor: (item: T, index: number) => Promise<R>,
+    limit: number
+  ): Promise<R[]> {
+    const results: R[] = new Array(items.length);
+    let currentIndex = 0;
+
+    const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+      while (currentIndex < items.length) {
+        const index = currentIndex++;
+        await this.delay(RATE_LIMIT_CONFIG.DELAY_BETWEEN_CALLS);
+        results[index] = await processor(items[index], index);
+      }
+    });
+
+    await Promise.all(workers);
+    return results;
+  }
+
+  // ==========================================
   // SINCRONIZAÇÃO DE CLIENTES
+  // Endpoint: POST /clientes/listar
+  // Retorno: { retorno_status: true, lista: [...] }
   // ==========================================
 
   async syncClientes(): Promise<SyncResult> {
@@ -66,42 +244,50 @@ export class SyncFromOleService {
       duration: 0,
     };
 
-    logger.info('🔄 Iniciando sincronização de clientes da Olé TV...');
+    logger.syncStart('Clientes');
 
     try {
-      // Buscar todos os clientes da API Olé TV
-      const response = await this.oleApi.listarTodosClientes();
+      // Buscar todos os clientes via POST /clientes/listar (com retry)
+      const response = await this.withRetry(
+        () => this.oleApi.listarClientes(),
+        'listarClientes'
+      );
 
       if (!response.success || !response.data) {
         throw new Error(response.error || 'Falha ao buscar clientes da Olé TV');
       }
 
-      const clientes = Array.isArray(response.data) 
-        ? response.data 
-        : response.data.clientes || response.data.retorno || [];
-
-      logger.info(`📋 ${clientes.length} clientes encontrados na Olé TV`);
-
-      // Processar cada cliente
-      for (const cliente of clientes) {
-        try {
-          await this.upsertCliente(cliente);
-          result.synced++;
-        } catch (error) {
-          result.failed++;
-          const errorMsg = error instanceof Error ? error.message : 'Erro desconhecido';
-          result.errors.push(`Cliente ${cliente.documento || cliente.id}: ${errorMsg}`);
-          logger.error(`Erro ao sincronizar cliente: ${errorMsg}`);
-        }
+      const data = response.data;
+      
+      if (!data.retorno_status) {
+        throw new Error(data.msg || 'API retornou erro: retorno_status = false');
       }
 
-      logger.info(`✅ Clientes sincronizados: ${result.synced} | Falhas: ${result.failed}`);
+      const clientes = data.lista || [];
+      logger.info(`📋 ${clientes.length} clientes encontrados na API Olé TV`);
+
+      // Processa clientes em lotes com delay
+      const { errors } = await this.processInBatches(
+        clientes,
+        async (cliente) => {
+          await this.upsertCliente(cliente);
+          result.synced++;
+          return cliente;
+        },
+        RATE_LIMIT_CONFIG.BATCH_SIZE,
+        'clientes'
+      );
+
+      result.failed = errors.length;
+      result.errors = errors;
+
+      logger.syncComplete('Clientes', result.synced, result.failed, Date.now() - startTime);
 
     } catch (error) {
       result.success = false;
       const errorMsg = error instanceof Error ? error.message : 'Erro desconhecido';
       result.errors.push(errorMsg);
-      logger.error(`❌ Falha na sincronização de clientes: ${errorMsg}`);
+      logger.syncError('Clientes', errorMsg);
     }
 
     result.duration = Date.now() - startTime;
@@ -109,52 +295,37 @@ export class SyncFromOleService {
   }
 
   private async upsertCliente(oleCliente: any): Promise<void> {
-    const documento = this.cleanDocument(
-      oleCliente.documento || oleCliente.cpf || oleCliente.cnpj || ''
-    );
+    const cpfCnpj = oleCliente.cpf_cnpj || '';
+    const oleId = String(oleCliente.id);
 
-    if (!documento) {
-      throw new Error('Cliente sem documento válido');
+    if (!cpfCnpj) {
+      throw new Error('Cliente sem CPF/CNPJ válido');
     }
 
     await prisma.oleCliente.upsert({
       where: {
-        integrationId_oleClienteId: {
+        integrationId_oleId: {
           integrationId: this.integrationId,
-          oleClienteId: String(oleCliente.id || oleCliente.idCliente),
+          oleId: oleId,
         },
       },
       update: {
-        documento,
-        nome: oleCliente.nome || oleCliente.razao_social || '',
-        email: oleCliente.email || null,
-        telefone: oleCliente.telefone || oleCliente.celular || null,
-        endereco: oleCliente.endereco || null,
-        numero: oleCliente.numero || null,
-        complemento: oleCliente.complemento || null,
-        bairro: oleCliente.bairro || null,
-        cidade: oleCliente.cidade || null,
-        estado: oleCliente.estado || oleCliente.uf || null,
-        cep: oleCliente.cep || null,
-        status: oleCliente.status || oleCliente.situacao || 'ATIVO',
+        nome: oleCliente.nome || '',
+        cpfCnpj: cpfCnpj,
+        dataNascimento: oleCliente.data_nascimento || null,
+        dataCadastro: oleCliente.data_cadastro || null,
+        status: oleCliente.status || 'Ativo',
         rawData: oleCliente,
         lastSyncAt: new Date(),
       },
       create: {
         integrationId: this.integrationId,
-        oleClienteId: String(oleCliente.id || oleCliente.idCliente),
-        documento,
-        nome: oleCliente.nome || oleCliente.razao_social || '',
-        email: oleCliente.email || null,
-        telefone: oleCliente.telefone || oleCliente.celular || null,
-        endereco: oleCliente.endereco || null,
-        numero: oleCliente.numero || null,
-        complemento: oleCliente.complemento || null,
-        bairro: oleCliente.bairro || null,
-        cidade: oleCliente.cidade || null,
-        estado: oleCliente.estado || oleCliente.uf || null,
-        cep: oleCliente.cep || null,
-        status: oleCliente.status || oleCliente.situacao || 'ATIVO',
+        oleId: oleId,
+        nome: oleCliente.nome || '',
+        cpfCnpj: cpfCnpj,
+        dataNascimento: oleCliente.data_nascimento || null,
+        dataCadastro: oleCliente.data_cadastro || null,
+        status: oleCliente.status || 'Ativo',
         rawData: oleCliente,
         lastSyncAt: new Date(),
       },
@@ -163,6 +334,8 @@ export class SyncFromOleService {
 
   // ==========================================
   // SINCRONIZAÇÃO DE CONTRATOS
+  // Endpoint: POST /contratos/listar/{id_cliente}
+  // Retorno: { retorno_status: true, contratos: [...] }
   // ==========================================
 
   async syncContratos(): Promise<SyncResult> {
@@ -174,91 +347,206 @@ export class SyncFromOleService {
       failed: 0,
       errors: [],
       duration: 0,
+      assinaturas: 0,
+      equipamentos: 0,
     };
 
-    logger.info('🔄 Iniciando sincronização de contratos da Olé TV...');
+    logger.syncStart('Contratos + Assinaturas + Equipamentos');
 
     try {
-      // Buscar clientes locais para obter contratos de cada um
       const clientesLocais = await prisma.oleCliente.findMany({
         where: { integrationId: this.integrationId },
-        select: { oleClienteId: true, id: true },
+        select: { oleId: true, id: true, nome: true },
       });
 
-      logger.info(`📋 Buscando contratos de ${clientesLocais.length} clientes...`);
+      logger.info(`📋 Buscando contratos de ${clientesLocais.length} clientes locais...`);
 
-      for (const cliente of clientesLocais) {
-        try {
-          const response = await this.oleApi.buscarContratos(cliente.oleClienteId);
+      // Processa clientes em lotes para buscar contratos
+      await this.processInBatches(
+        clientesLocais,
+        async (cliente, index) => {
+          try {
+            const response = await this.withRetry(
+              () => this.oleApi.listarContratos(cliente.oleId),
+              `listarContratos(${cliente.oleId})`
+            );
 
-          if (response.success && response.data) {
-            const contratos = Array.isArray(response.data) 
-              ? response.data 
-              : response.data.contratos || response.data.retorno || [];
+            if (response.success && response.data && response.data.retorno_status) {
+              const contratos = response.data.contratos || [];
 
-            for (const contrato of contratos) {
-              await this.upsertContrato(cliente.id, contrato);
-              result.synced++;
+              if (contratos.length > 0) {
+                let totalAssinaturas = 0;
+                let totalEquipamentos = 0;
+
+                for (const contrato of contratos) {
+                  const counts = await this.upsertContrato(cliente.id, contrato);
+                  result.synced++;
+                  result.assinaturas! += counts.assinaturas;
+                  result.equipamentos! += counts.equipamentos;
+                  totalAssinaturas += counts.assinaturas;
+                  totalEquipamentos += counts.equipamentos;
+                  await this.delay(50);
+                }
+
+                logger.clientSync(
+                  cliente.oleId, 
+                  cliente.nome || 'N/A', 
+                  `${contratos.length} contrato(s), ${totalAssinaturas} assinatura(s), ${totalEquipamentos} equipamento(s)`
+                );
+              } else {
+                logger.syncSkip(`Cliente ${cliente.oleId}`, 'sem contratos');
+              }
+            } else {
+              logger.syncSkip(`Cliente ${cliente.oleId}`, 'sem contratos');
             }
+          } catch (error) {
+            result.failed++;
+            const errorMsg = error instanceof Error ? error.message : 'Erro desconhecido';
+            result.errors.push(`Contratos cliente ${cliente.oleId}: ${errorMsg}`);
           }
-        } catch (error) {
-          result.failed++;
-          const errorMsg = error instanceof Error ? error.message : 'Erro desconhecido';
-          result.errors.push(`Contratos cliente ${cliente.oleClienteId}: ${errorMsg}`);
-        }
-      }
+          return cliente;
+        },
+        RATE_LIMIT_CONFIG.BATCH_SIZE,
+        'contratos'
+      );
 
-      logger.info(`✅ Contratos sincronizados: ${result.synced} | Falhas: ${result.failed}`);
+      logger.info(`   📊 Assinaturas: ${result.assinaturas} | Equipamentos: ${result.equipamentos}`);
+      logger.syncComplete('Contratos', result.synced, result.failed, Date.now() - startTime);
 
     } catch (error) {
       result.success = false;
       const errorMsg = error instanceof Error ? error.message : 'Erro desconhecido';
       result.errors.push(errorMsg);
-      logger.error(`❌ Falha na sincronização de contratos: ${errorMsg}`);
+      logger.syncError('Contratos', errorMsg);
     }
 
     result.duration = Date.now() - startTime;
     return result;
   }
 
-  private async upsertContrato(oleClienteLocalId: string, oleContrato: any): Promise<void> {
-    const contratoId = String(oleContrato.id || oleContrato.idContrato || oleContrato.contrato);
+  /**
+   * Insere ou atualiza um contrato e seus relacionamentos:
+   * Contrato → Assinaturas → Equipamentos
+   */
+  private async upsertContrato(oleClienteLocalId: string, oleContrato: any): Promise<{ assinaturas: number; equipamentos: number }> {
+    const contratoOleId = String(oleContrato.id);
+    let totalAssinaturas = 0;
+    let totalEquipamentos = 0;
 
-    await prisma.oleContrato.upsert({
+    // 1. Upsert do Contrato
+    const contrato = await prisma.oleContrato.upsert({
       where: {
-        integrationId_oleContratoId: {
+        integrationId_oleId: {
           integrationId: this.integrationId,
-          oleContratoId: contratoId,
+          oleId: contratoOleId,
         },
       },
       update: {
-        plano: oleContrato.plano || oleContrato.nome_plano || null,
-        valor: oleContrato.valor ? parseFloat(oleContrato.valor) : null,
-        dataInicio: oleContrato.data_inicio ? new Date(oleContrato.data_inicio) : null,
-        dataVencimento: oleContrato.data_vencimento ? new Date(oleContrato.data_vencimento) : null,
-        status: oleContrato.status || oleContrato.situacao || 'ATIVO',
-        diaVencimento: oleContrato.dia_vencimento ? parseInt(oleContrato.dia_vencimento) : null,
+        codigo: oleContrato.codigo || null,
+        tipo: oleContrato.tipo || null,
+        servico: oleContrato.servico || null,
+        dataGeracao: oleContrato.data_geracao || null,
+        dataAtivacao: oleContrato.data_ativacao || null,
+        status: oleContrato.status || 'Ativo',
         rawData: oleContrato,
         lastSyncAt: new Date(),
       },
       create: {
         integrationId: this.integrationId,
         oleClienteId: oleClienteLocalId,
-        oleContratoId: contratoId,
-        plano: oleContrato.plano || oleContrato.nome_plano || null,
-        valor: oleContrato.valor ? parseFloat(oleContrato.valor) : null,
-        dataInicio: oleContrato.data_inicio ? new Date(oleContrato.data_inicio) : null,
-        dataVencimento: oleContrato.data_vencimento ? new Date(oleContrato.data_vencimento) : null,
-        status: oleContrato.status || oleContrato.situacao || 'ATIVO',
-        diaVencimento: oleContrato.dia_vencimento ? parseInt(oleContrato.dia_vencimento) : null,
+        oleId: contratoOleId,
+        codigo: oleContrato.codigo || null,
+        tipo: oleContrato.tipo || null,
+        servico: oleContrato.servico || null,
+        dataGeracao: oleContrato.data_geracao || null,
+        dataAtivacao: oleContrato.data_ativacao || null,
+        status: oleContrato.status || 'Ativo',
         rawData: oleContrato,
         lastSyncAt: new Date(),
       },
     });
+
+    // 2. Processar Assinaturas do contrato
+    const assinaturas = oleContrato.assinaturas || [];
+    
+    for (const assinatura of assinaturas) {
+      const assinaturaOleId = String(assinatura.id);
+
+      const assinaturaLocal = await prisma.oleAssinatura.upsert({
+        where: {
+          integrationId_oleId: {
+            integrationId: this.integrationId,
+            oleId: assinaturaOleId,
+          },
+        },
+        update: {
+          plano: assinatura.plano || null,
+          box: assinatura.box || null,
+          dispositivos: assinatura.dispositivos || null,
+          statusAssinatura: assinatura.status_assinatura || null,
+          rawData: assinatura,
+          lastSyncAt: new Date(),
+        },
+        create: {
+          integrationId: this.integrationId,
+          oleContratoId: contrato.id,
+          oleId: assinaturaOleId,
+          plano: assinatura.plano || null,
+          box: assinatura.box || null,
+          dispositivos: assinatura.dispositivos || null,
+          statusAssinatura: assinatura.status_assinatura || null,
+          rawData: assinatura,
+          lastSyncAt: new Date(),
+        },
+      });
+
+      totalAssinaturas++;
+
+      // 3. Processar Equipamentos da assinatura
+      const equipamentos = assinatura.equipamentos || [];
+      
+      for (const equipamento of equipamentos) {
+        const equipamentoOleId = String(equipamento.id);
+
+        await prisma.oleEquipamentoContrato.upsert({
+          where: {
+            integrationId_oleId: {
+              integrationId: this.integrationId,
+              oleId: equipamentoOleId,
+            },
+          },
+          update: {
+            equipamento: equipamento.equipamento || null,
+            mac: equipamento.mac || null,
+            dataInicio: equipamento.data_inicio || null,
+            statusEquipamento: equipamento.status_equipamento || null,
+            rawData: equipamento,
+            lastSyncAt: new Date(),
+          },
+          create: {
+            integrationId: this.integrationId,
+            oleAssinaturaId: assinaturaLocal.id,
+            oleId: equipamentoOleId,
+            equipamento: equipamento.equipamento || null,
+            mac: equipamento.mac || null,
+            dataInicio: equipamento.data_inicio || null,
+            statusEquipamento: equipamento.status_equipamento || null,
+            rawData: equipamento,
+            lastSyncAt: new Date(),
+          },
+        });
+
+        totalEquipamentos++;
+      }
+    }
+
+    return { assinaturas: totalAssinaturas, equipamentos: totalEquipamentos };
   }
 
   // ==========================================
   // SINCRONIZAÇÃO DE BOLETOS
+  // Endpoint: POST /boletos/listar/{id_cliente}
+  // Retorno: { retorno_status: true, boletos: [...] }
   // ==========================================
 
   async syncBoletos(): Promise<SyncResult> {
@@ -272,45 +560,59 @@ export class SyncFromOleService {
       duration: 0,
     };
 
-    logger.info('🔄 Iniciando sincronização de boletos da Olé TV...');
+    logger.syncStart('Boletos');
 
     try {
-      // Buscar clientes locais para obter boletos de cada um
       const clientesLocais = await prisma.oleCliente.findMany({
         where: { integrationId: this.integrationId },
-        select: { oleClienteId: true, id: true, documento: true },
+        select: { oleId: true, id: true, nome: true },
       });
 
-      logger.info(`📋 Buscando boletos de ${clientesLocais.length} clientes...`);
+      logger.info(`📋 Buscando boletos de ${clientesLocais.length} clientes locais...`);
 
-      for (const cliente of clientesLocais) {
-        try {
-          const response = await this.oleApi.listarBoletos(cliente.documento);
+      // Processa clientes em lotes para buscar boletos
+      await this.processInBatches(
+        clientesLocais,
+        async (cliente, index) => {
+          try {
+            const response = await this.withRetry(
+              () => this.oleApi.listarBoletos(cliente.oleId),
+              `listarBoletos(${cliente.oleId})`
+            );
 
-          if (response.success && response.data) {
-            const boletos = Array.isArray(response.data) 
-              ? response.data 
-              : response.data.boletos || response.data.retorno || [];
+            if (response.success && response.data && response.data.retorno_status) {
+              const boletos = response.data.boletos || [];
 
-            for (const boleto of boletos) {
-              await this.upsertBoleto(cliente.id, boleto);
-              result.synced++;
+              if (boletos.length > 0) {
+                logger.clientSync(cliente.oleId, cliente.nome || 'N/A', `${boletos.length} boleto(s)`);
+              }
+
+              for (const boleto of boletos) {
+                await this.upsertBoleto(cliente.id, boleto);
+                result.synced++;
+                await this.delay(50);
+              }
+            } else {
+              logger.syncSkip(`Cliente ${cliente.oleId}`, 'sem boletos');
             }
+          } catch (error) {
+            result.failed++;
+            const errorMsg = error instanceof Error ? error.message : 'Erro desconhecido';
+            result.errors.push(`Boletos cliente ${cliente.oleId}: ${errorMsg}`);
           }
-        } catch (error) {
-          result.failed++;
-          const errorMsg = error instanceof Error ? error.message : 'Erro desconhecido';
-          result.errors.push(`Boletos cliente ${cliente.oleClienteId}: ${errorMsg}`);
-        }
-      }
+          return cliente;
+        },
+        RATE_LIMIT_CONFIG.BATCH_SIZE,
+        'boletos'
+      );
 
-      logger.info(`✅ Boletos sincronizados: ${result.synced} | Falhas: ${result.failed}`);
+      logger.syncComplete('Boletos', result.synced, result.failed, Date.now() - startTime);
 
     } catch (error) {
       result.success = false;
       const errorMsg = error instanceof Error ? error.message : 'Erro desconhecido';
       result.errors.push(errorMsg);
-      logger.error(`❌ Falha na sincronização de boletos: ${errorMsg}`);
+      logger.syncError('Boletos', errorMsg);
     }
 
     result.duration = Date.now() - startTime;
@@ -318,37 +620,49 @@ export class SyncFromOleService {
   }
 
   private async upsertBoleto(oleClienteLocalId: string, oleBoleto: any): Promise<void> {
-    const boletoId = String(oleBoleto.id || oleBoleto.idBoleto || oleBoleto.nosso_numero);
+    const oleId = String(oleBoleto.id);
+
+    // Extrai objetos aninhados
+    const datas = oleBoleto.datas || {};
+    const valores = oleBoleto.valores || {};
 
     await prisma.oleBoleto.upsert({
       where: {
-        integrationId_oleBoletoId: {
+        integrationId_oleId: {
           integrationId: this.integrationId,
-          oleBoletoId: boletoId,
+          oleId: oleId,
         },
       },
       update: {
-        valor: oleBoleto.valor ? parseFloat(oleBoleto.valor) : 0,
-        dataVencimento: oleBoleto.data_vencimento ? new Date(oleBoleto.data_vencimento) : null,
-        dataPagamento: oleBoleto.data_pagamento ? new Date(oleBoleto.data_pagamento) : null,
-        status: oleBoleto.status || oleBoleto.situacao || 'PENDENTE',
+        codigo: oleBoleto.codigo || null,
+        formato: oleBoleto.formato || null,
+        referente: oleBoleto.referente || null,
+        dataGeracao: datas.geracao || null,
+        dataVencimento: datas.vencimento || null,
+        dataPagamento: datas.pagamento || null,
+        valorBonificacao: valores.bonificacao || null,
+        valorTotal: valores.valor || null,
+        nossoNumero: oleBoleto.nosso_numero || null,
         linhaDigitavel: oleBoleto.linha_digitavel || null,
-        codigoBarras: oleBoleto.codigo_barras || null,
-        urlPdf: oleBoleto.url_pdf || oleBoleto.link_boleto || null,
+        status: oleBoleto.status || 'Em Aberto',
         rawData: oleBoleto,
         lastSyncAt: new Date(),
       },
       create: {
         integrationId: this.integrationId,
         oleClienteId: oleClienteLocalId,
-        oleBoletoId: boletoId,
-        valor: oleBoleto.valor ? parseFloat(oleBoleto.valor) : 0,
-        dataVencimento: oleBoleto.data_vencimento ? new Date(oleBoleto.data_vencimento) : null,
-        dataPagamento: oleBoleto.data_pagamento ? new Date(oleBoleto.data_pagamento) : null,
-        status: oleBoleto.status || oleBoleto.situacao || 'PENDENTE',
+        oleId: oleId,
+        codigo: oleBoleto.codigo || null,
+        formato: oleBoleto.formato || null,
+        referente: oleBoleto.referente || null,
+        dataGeracao: datas.geracao || null,
+        dataVencimento: datas.vencimento || null,
+        dataPagamento: datas.pagamento || null,
+        valorBonificacao: valores.bonificacao || null,
+        valorTotal: valores.valor || null,
+        nossoNumero: oleBoleto.nosso_numero || null,
         linhaDigitavel: oleBoleto.linha_digitavel || null,
-        codigoBarras: oleBoleto.codigo_barras || null,
-        urlPdf: oleBoleto.url_pdf || oleBoleto.link_boleto || null,
+        status: oleBoleto.status || 'Em Aberto',
         rawData: oleBoleto,
         lastSyncAt: new Date(),
       },
@@ -361,7 +675,9 @@ export class SyncFromOleService {
 
   async syncAll(): Promise<FullSyncResult> {
     const startedAt = new Date();
-    logger.info('🚀 Iniciando sincronização completa Olé TV → Banco Local...');
+    
+    // Log visual de início
+    logger.fullSyncStart();
 
     // Executar sincronizações em sequência (contratos e boletos dependem de clientes)
     const clientesResult = await this.syncClientes();
@@ -390,8 +706,15 @@ export class SyncFromOleService {
       totalFailed: clientesResult.failed + contratosResult.failed + boletosResult.failed,
     };
 
-    logger.info(`✅ Sincronização completa finalizada em ${result.duration}ms`);
-    logger.info(`📊 Total: ${result.totalSynced} registros | Falhas: ${result.totalFailed}`);
+    // Log visual de conclusão
+    logger.fullSyncComplete({
+      totalSynced: result.totalSynced,
+      totalFailed: result.totalFailed,
+      duration: result.duration,
+      clientes: { synced: clientesResult.synced, failed: clientesResult.failed },
+      contratos: { synced: contratosResult.synced, failed: contratosResult.failed },
+      boletos: { synced: boletosResult.synced, failed: boletosResult.failed },
+    });
 
     return result;
   }
@@ -404,16 +727,37 @@ export class SyncFromOleService {
     return doc.replace(/\D/g, '');
   }
 
-  // Estatísticas do banco local
+  private parseDataBR(dataBR: string): Date | null {
+    if (!dataBR) return null;
+    const parts = dataBR.split('/');
+    if (parts.length !== 3) return null;
+    const [dia, mes, ano] = parts;
+    return new Date(`${ano}-${mes}-${dia}`);
+  }
+
+  private parseValorBR(valorBR: string): number {
+    if (!valorBR) return 0;
+    const cleaned = valorBR
+      .replace('R$', '')
+      .replace(/\s/g, '')
+      .replace(/\./g, '')
+      .replace(',', '.');
+    return parseFloat(cleaned) || 0;
+  }
+
   async getLocalStats(): Promise<{
     clientes: number;
     contratos: number;
+    assinaturas: number;
+    equipamentos: number;
     boletos: number;
     lastSync: Date | null;
   }> {
-    const [clientes, contratos, boletos, integration] = await Promise.all([
+    const [clientes, contratos, assinaturas, equipamentos, boletos, integration] = await Promise.all([
       prisma.oleCliente.count({ where: { integrationId: this.integrationId } }),
       prisma.oleContrato.count({ where: { integrationId: this.integrationId } }),
+      prisma.oleAssinatura.count({ where: { integrationId: this.integrationId } }),
+      prisma.oleEquipamentoContrato.count({ where: { integrationId: this.integrationId } }),
       prisma.oleBoleto.count({ where: { integrationId: this.integrationId } }),
       prisma.integration.findUnique({
         where: { id: this.integrationId },
@@ -424,6 +768,8 @@ export class SyncFromOleService {
     return {
       clientes,
       contratos,
+      assinaturas,
+      equipamentos,
       boletos,
       lastSync: integration?.lastSync || null,
     };

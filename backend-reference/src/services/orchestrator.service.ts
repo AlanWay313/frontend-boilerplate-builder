@@ -5,8 +5,10 @@ import { ClientStatus } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { logger } from '../lib/logger';
 import { OleApiService } from './ole-api.service';
-import { ExternalApiService } from './external-api.service';
+import { ComplementaryApiService, DadosEnriquecidos } from './complementary-api.service';
 import { SyncQueueService } from './sync-queue.service';
+import { ProductMappingService, ProductFromWebhook } from './product-mapping.service';
+import { ClientFormatterService } from './client-formatter.service';
 
 // ==========================================
 // TIPOS
@@ -74,13 +76,17 @@ interface OrchestrationResult {
 export class OrchestratorService {
   private integrationId: string;
   private oleApi: OleApiService | null = null;
-  private externalApi: ExternalApiService;
+  private complementaryApi: ComplementaryApiService;
   private syncQueue: SyncQueueService;
+  private productMapping: ProductMappingService;
+  private clientFormatter: ClientFormatterService;
 
   constructor(integrationId: string) {
     this.integrationId = integrationId;
-    this.externalApi = new ExternalApiService(integrationId);
+    this.complementaryApi = new ComplementaryApiService();
     this.syncQueue = new SyncQueueService(integrationId);
+    this.productMapping = new ProductMappingService(integrationId);
+    this.clientFormatter = new ClientFormatterService();
   }
 
   private async getOleApi(): Promise<OleApiService> {
@@ -194,26 +200,30 @@ export class OrchestratorService {
 
     // =============================================
     // PASSO 2: BUSCAR DADOS COMPLEMENTARES (ENRICHMENT)
+    // Endpoint: /external/integrations/thirdparty/people/txid/{cpf_cnpj}
     // =============================================
-    logger.info('Buscando dados complementares na API externa...', { 
+    logger.info('Buscando dados complementares na API ERP...', { 
       documento: payload.documento 
     });
     
-    let complementaryData: any = null;
+    let complementaryData: DadosEnriquecidos | null = null;
     try {
-      complementaryData = await this.externalApi.buscarCliente(payload.documento);
+      complementaryData = await this.complementaryApi.buscarDadosComplementares(payload.documento);
       
       // Atualiza cache com dados complementares
       await prisma.clientCache.update({
         where: { id: localClient.id },
         data: {
           complementaryData: complementaryData || {},
-          status: 'ENRICHED',
+          status: complementaryData ? 'ENRICHED' : 'PENDING_VALIDATION',
         },
       });
-      logger.info('Dados complementares salvos', { 
+      
+      logger.info('Dados complementares processados', { 
         localId: localClient.id,
-        hasData: !!complementaryData 
+        hasData: !!complementaryData,
+        hasDataNascimento: !!complementaryData?.dataNascimento,
+        hasEndereco: !!complementaryData?.endereco,
       });
     } catch (error: any) {
       logger.warn('Falha ao buscar dados complementares', { 
@@ -300,7 +310,7 @@ export class OrchestratorService {
     }
 
     // Busca dados complementares
-    const complementaryData = await this.externalApi.buscarCliente(payload.documento);
+    const complementaryData = await this.complementaryApi.buscarDadosComplementares(payload.documento);
     const clienteData = this.mergeClientData(payload, complementaryData);
 
     // Verifica se houve mudança nos dados
@@ -361,23 +371,105 @@ export class OrchestratorService {
   // ==========================================
 
   /**
-   * Cria novo cliente na OLÉ
-   * (Dados já foram persistidos localmente antes de chegar aqui)
+   * Cria novo cliente na OLÉ + Contrato
+   * FLUXO COMPLETO:
+   * 1. Valida dados mínimos (documento, nome, data nascimento para PF)
+   * 2. Mapeia produtos do webhook para planos Olé
+   * 3. Adiciona à fila de criação de cliente
+   * 4. Após cliente criado, adiciona contrato à fila
    */
   private async createClient(
     clienteData: Record<string, any>,
     originalPayload: WebhookPayload,
     localClientId: string
   ): Promise<OrchestrationResult> {
-    // Adiciona à fila de sincronização
+    
+    // 1. VALIDAÇÃO PRÉ-SYNC
+    const canSync = this.clientFormatter.canSync(clienteData);
+    if (!canSync.canSync) {
+      logger.error('Dados insuficientes para sincronização', {
+        localClientId,
+        reason: canSync.reason,
+      });
+
+      // Atualiza cache com erro
+      await prisma.clientCache.update({
+        where: { id: localClientId },
+        data: {
+          status: 'SYNC_FAILED',
+          validationErrors: { reason: canSync.reason },
+          lastSyncError: canSync.reason,
+        },
+      });
+
+      return {
+        success: false,
+        action: 'skipped',
+        message: `Validação falhou: ${canSync.reason}`,
+      };
+    }
+
+    // 2. MAPEAR PRODUTOS → PLANOS
+    let productMapping: any = null;
+    if (originalPayload.products && originalPayload.products.length > 0) {
+      productMapping = await this.productMapping.mapProducts(
+        originalPayload.products as ProductFromWebhook[]
+      );
+
+      if (!productMapping.mainPlan) {
+        logger.warn('Nenhum plano principal mapeado', {
+          products: originalPayload.products.map(p => p.code),
+          unmapped: productMapping.unmappedCodes,
+        });
+      }
+
+      // Salva mapeamento no cache para uso posterior
+      await prisma.clientCache.update({
+        where: { id: localClientId },
+        data: {
+          complementaryData: {
+            ...(clienteData.complementaryData || {}),
+            productMapping,
+          },
+        },
+      });
+    }
+
+    // 3. ADICIONAR CLIENTE À FILA
     const queueId = await this.syncQueue.addToQueue('CREATE_CLIENT', {
       ...clienteData,
-      localClientId, // Referência ao registro local
+      localClientId,
+      // Dados adicionais para criação do contrato após o cliente
+      planoId: productMapping?.mainPlan?.olePlanoId,
+      planosAdicionais: productMapping?.additionalPlans?.map((p: any) => p.olePlanoId),
+      equipamentos: productMapping?.equipments,
     }, {
-      priority: 1,
+      priority: 2, // Alta prioridade
     });
 
-    // Atualiza status no cache local
+    // 4. SE TEM PLANO MAPEADO, AGENDA CRIAÇÃO DO CONTRATO
+    // (será processado após o cliente ser criado)
+    if (productMapping?.mainPlan) {
+      await this.syncQueue.addToQueue('CREATE_CONTRACT', {
+        localClientId,
+        // Cliente será preenchido após criação
+        id_plano_principal: parseInt(productMapping.mainPlan.olePlanoId),
+        id_plano_adicional: productMapping.additionalPlans?.map((p: any) => parseInt(p.olePlanoId)),
+        // Equipamentos
+        equipamentos: productMapping.equipments,
+        email_usuario: clienteData.email,
+      }, {
+        priority: 1, // Executar DEPOIS do cliente
+        scheduledFor: new Date(Date.now() + 30000), // 30s de delay para garantir ordem
+      });
+
+      logger.info('Contrato agendado para criação', {
+        localClientId,
+        planoId: productMapping.mainPlan.olePlanoId,
+      });
+    }
+
+    // 5. ATUALIZAR STATUS NO CACHE
     await prisma.clientCache.update({
       where: { id: localClientId },
       data: { status: 'PENDING_SYNC' },
@@ -385,14 +477,21 @@ export class OrchestratorService {
 
     logger.info('Cliente adicionado à fila de criação', { 
       localClientId, 
-      queueId 
+      queueId,
+      temPlano: !!productMapping?.mainPlan,
     });
 
     return {
       success: true,
       action: 'queued',
-      message: 'Cliente validado localmente e adicionado à fila de criação',
-      data: { queueId, localClientId },
+      message: productMapping?.mainPlan 
+        ? 'Cliente e contrato adicionados à fila de criação'
+        : 'Cliente adicionado à fila (sem plano mapeado)',
+      data: { 
+        queueId, 
+        localClientId,
+        planoMapeado: productMapping?.mainPlan?.olePlanoNome,
+      },
     };
   }
 
@@ -477,28 +576,34 @@ export class OrchestratorService {
   // ==========================================
 
   /**
-   * Mescla dados do webhook com dados complementares
+   * Mescla dados do webhook com dados complementares da API ERP
+   * Prioridade: Dados complementares > Dados do webhook
    */
   private mergeClientData(
     webhook: WebhookPayload,
-    complementary: any | null
+    complementary: DadosEnriquecidos | null
   ): Record<string, any> {
     const merged: Record<string, any> = {
       documento: webhook.documento,
-      nome: webhook.nome || complementary?.nome || '',
-      email: webhook.email || complementary?.email || '',
-      telefone: webhook.telefone || complementary?.telefone || complementary?.celular || '',
+      nome: complementary?.nomeCompleto || webhook.nome || '',
+      email: complementary?.email || webhook.email || '',
+      telefone: complementary?.celular || complementary?.telefone || webhook.telefone || '',
     };
 
-    // Endereço - prioriza dados complementares (mais completos)
+    // Endereço - prioriza dados complementares (mais completos e confiáveis)
     if (complementary?.endereco) {
+      merged.tipoLogradouro = complementary.endereco.tipoLogradouro;
       merged.endereco = complementary.endereco.logradouro;
       merged.numero = complementary.endereco.numero;
       merged.complemento = complementary.endereco.complemento;
       merged.bairro = complementary.endereco.bairro;
       merged.cidade = complementary.endereco.cidade;
-      merged.estado = complementary.endereco.estado;
+      merged.codigoCidade = complementary.endereco.codigoCidade; // Código IBGE
+      merged.referencia = complementary.endereco.referencia;
+      merged.estado = complementary.endereco.uf;
       merged.cep = complementary.endereco.cep;
+      merged.longitude = complementary.endereco.longitude;
+      merged.latitude = complementary.endereco.latitude;
     } else if (webhook.endereco) {
       merged.endereco = webhook.endereco;
       merged.numero = webhook.numero;
@@ -508,15 +613,17 @@ export class OrchestratorService {
       merged.cep = webhook.cep;
     }
 
-    // Dados adicionais
+    // Data de nascimento - campo OBRIGATÓRIO para inserção na Olé TV (PF)
     if (complementary?.dataNascimento) {
       merged.dataNascimento = complementary.dataNascimento;
-    }
-    if (complementary?.rg) {
-      merged.rg = complementary.rg;
-    }
-    if (complementary?.sexo) {
-      merged.sexo = complementary.sexo;
+      logger.info('Data de nascimento obtida', { 
+        documento: webhook.documento,
+        dataNascimento: complementary.dataNascimento 
+      });
+    } else {
+      logger.warn('Data de nascimento NÃO encontrada - pode falhar na inserção PF', { 
+        documento: webhook.documento 
+      });
     }
 
     return merged;
