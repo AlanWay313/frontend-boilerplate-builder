@@ -21,6 +21,7 @@ export async function buscarPontosRegistrados(idContrato: number | string): Prom
   const keyapi = import.meta.env.VITE_OLETV_KEYAPI;
   const login = import.meta.env.VITE_OLETV_LOGIN;
   const pass = import.meta.env.VITE_OLETV_PASS;
+  const url = import.meta.env.VITE_OLETV_URL;
 
   if (!keyapi || !login || !pass) {
     console.warn('Credenciais da API OleTV não configuradas');
@@ -28,20 +29,17 @@ export async function buscarPontosRegistrados(idContrato: number | string): Prom
   }
 
   try {
+    const formData = new FormData();
+    formData.append('keyapi', keyapi);
+    formData.append('login', login);
+    formData.append('pass', pass);
+
     const response = await axios.post<PontosResponse>(
-      `https://api.oletv.net.br/contratos/pontosregistrados/${idContrato}`,
-      {
-        keyapi,
-        login,
-        pass
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      }
+      `${url}contratos/pontosregistrados/${idContrato}`,
+      formData
     );
 
+    console.log('Pontos registrados recebidos:', response.data);
     return response.data;
   } catch (error) {
     console.error('Erro ao buscar pontos registrados:', error);
