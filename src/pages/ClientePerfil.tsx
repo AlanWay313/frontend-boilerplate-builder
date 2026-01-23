@@ -25,7 +25,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,6 +34,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ClienteAtividadeRecente } from "@/components/cliente/atividade-recente";
 import useIntegrador from "@/hooks/use-integrador";
 import api from "@/services/api";
 
@@ -511,11 +511,23 @@ export function ClientePerfil() {
         </motion.div>
       </div>
 
-      {/* Informações Adicionais */}
+      {/* Atividade Recente */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
+      >
+        <ClienteAtividadeRecente 
+          cpfCnpj={cliente.cpf_cnpj} 
+          integrador={integrador as string} 
+        />
+      </motion.div>
+
+      {/* Informações Adicionais */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.6 }}
       >
         <Card className="border-border/50">
           <CardHeader className="pb-3">
