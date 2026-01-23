@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ClienteAtividadeRecente } from "@/components/cliente/atividade-recente";
+import { PontosRegistrados } from "@/components/cliente/pontos-registrados";
 import EditarCliente from "@/components/editarcliente";
 import ResetSenha from "@/components/resetsenha";
 import ReintegrarCliente from "@/components/reintegrarcliente";
@@ -525,11 +526,22 @@ export function ClientePerfil() {
         </motion.div>
       </div>
 
+      {/* Pontos Registrados */}
+      {cliente.ole_contract_number && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+        >
+          <PontosRegistrados idContrato={cliente.ole_contract_number} />
+        </motion.div>
+      )}
+
       {/* Atividade Recente */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
+        transition={{ delay: 0.6 }}
       >
         <ClienteAtividadeRecente 
           cpfCnpj={cliente.cpf_cnpj} 
