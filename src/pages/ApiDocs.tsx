@@ -18,7 +18,8 @@ import {
   AlertCircle,
   Search,
   X,
-  Receipt
+  Receipt,
+  FileSignature
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -503,6 +504,298 @@ export function ApiDocs() {
     },
     "status": "Situacao atual da baixa"
   }
+}`
+    },
+    // Contratos/Assinatura
+    {
+      section: 'Contratos',
+      method: 'POST' as const,
+      url: 'https://api.oletv.net.br/planos',
+      description: 'Lista todos os planos disponíveis para contratação',
+      postParams: authParams,
+      response: `{
+  "retorno_status": true,
+  "planos": [
+    {
+      "id": "999",
+      "tipo": "Principal",
+      "nome": "Plano A",
+      "taxa_instalacao": "999.00",
+      "mensalidade": {
+        "normal": "99.99",
+        "ate_vencimento": "99.99",
+        "promocao": "99.99"
+      }
+    },
+    {
+      "id": "999",
+      "tipo": "Adicional",
+      "nome": "Ponto Adicional",
+      "taxa_instalacao": "999.00",
+      "mensalidade": {
+        "normal": "99.99",
+        "ate_vencimento": "99.99",
+        "promocao": "99.99"
+      }
+    }
+  ]
+}`
+    },
+    {
+      section: 'Contratos',
+      method: 'POST' as const,
+      url: 'https://api.oletv.net.br/equipamentos',
+      description: 'Lista todos os modelos de equipamentos disponíveis',
+      postParams: authParams,
+      response: `{
+  "retorno_status": true,
+  "modelos": [
+    { "id": "999", "nome": "Modelo A" },
+    { "id": "999", "nome": "Modelo B" }
+  ]
+}`
+    },
+    {
+      section: 'Contratos',
+      method: 'POST' as const,
+      url: 'https://api.oletv.net.br/contratos/listar/{id_cliente}',
+      description: 'Lista todos os contratos de um cliente',
+      urlParams: [
+        { name: 'id_cliente', type: 'inteiro', description: 'ID do cliente', required: true }
+      ],
+      postParams: authParams,
+      response: `{
+  "retorno_status": true,
+  "contratos": [
+    {
+      "id": "9999",
+      "codigo": "Código do contrato",
+      "tipo": "Principal",
+      "servico": "Olé TV",
+      "data_geracao": "dd/mm/aaaa",
+      "data_ativacao": "dd/mm/aaaa",
+      "status": "Ativo (Sem Pendências)",
+      "assinaturas": [
+        {
+          "id": "9999",
+          "plano": "Plano A",
+          "box": "9",
+          "dispositivos": "9",
+          "status_assinatura": "Ativo",
+          "equipamentos": [
+            {
+              "id": "9999",
+              "equipamento": "Nome Equipamento",
+              "mac": "MAC do Equipamento",
+              "data_inicio": "dd/mm/aaaa",
+              "status_equipamento": "Ativo"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}`
+    },
+    {
+      section: 'Contratos',
+      method: 'POST' as const,
+      url: 'https://api.oletv.net.br/contratos/alterarusuario/{id_contrato}',
+      description: 'Altera o e-mail do usuário de um contrato',
+      urlParams: [
+        { name: 'id_contrato', type: 'inteiro', description: 'ID do contrato', required: true }
+      ],
+      postParams: [
+        ...authParams,
+        { name: 'email_usuario', type: 'texto', description: 'E-mail válido do usuário', required: true },
+      ],
+      response: `{
+  "retorno_status": true,
+  "msg": "Foi enviado para o e-mail xxxx@xxxx.com.br suas instruções!"
+}`
+    },
+    {
+      section: 'Contratos',
+      method: 'POST' as const,
+      url: 'https://api.oletv.net.br/contratos/inserir',
+      description: 'Insere um novo contrato para um cliente',
+      postParams: [
+        ...authParams,
+        { name: 'id_cliente', type: 'inteiro', description: 'ID do Cliente', required: true },
+        { name: 'id_contrato_origem', type: 'string', description: 'ID do contrato no ERP externo (Obrigatório para alguns ERP)', required: false },
+        { name: 'id_plano_principal', type: 'inteiro', description: 'ID do plano principal: disponível pelo /planos', required: true },
+        { name: 'id_modelo[]', type: 'inteiro', description: 'ID modelo do equipamento: disponível pelo /equipamentos', required: false },
+        { name: 'mac[]', type: 'string', description: 'Endereço MAC do equipamento', required: false },
+        { name: 'id_plano_adicional[]', type: 'inteiro', description: 'ID do plano adicional', required: false },
+        { name: 'email_usuario', type: 'string', description: 'E-mail para login no mobile (obrigatório para plano Mobile)', required: false },
+      ],
+      notes: [
+        'Os campos com [] são arrays e podem se repetir.',
+        'Para plano Mobile: informar apenas id_plano_principal + email_usuario (sem id_modelo e mac).',
+        'O email_usuario é Obrigatório quando o Plano Principal for Mobile.'
+      ],
+      response: `{
+  "retorno_status": true,
+  "id": "9999",
+  "codigo": "9999/999999999-99",
+  "status": "Ativo (Sem Pendências)"
+}`
+    },
+    {
+      section: 'Contratos',
+      method: 'POST' as const,
+      url: 'https://api.oletv.net.br/contratos/enviardocumentacao/{id_cliente}/{id_contrato}',
+      description: 'Envia documentação PDF para um contrato',
+      urlParams: [
+        { name: 'id_cliente', type: 'inteiro', description: 'ID do Cliente', required: true },
+        { name: 'id_contrato', type: 'inteiro', description: 'ID do Contrato', required: true }
+      ],
+      postParams: [
+        ...authParams,
+        { name: 'nome', type: 'string', description: 'Nome do arquivo PDF', required: true },
+        { name: 'conteudo', type: 'string', description: 'Conteúdo do arquivo PDF em Base64', required: true },
+      ],
+      response: `{
+  "retorno_status": true,
+  "messagem": "Arquivo enviado com sucesso!"
+}`
+    },
+    {
+      section: 'Contratos',
+      method: 'POST' as const,
+      url: 'https://api.oletv.net.br/contratos/listarbloqueios/{id_contrato}/{ativos}',
+      description: 'Lista os bloqueios de um contrato',
+      urlParams: [
+        { name: 'id_contrato', type: 'inteiro', description: 'ID do Contrato', required: true },
+        { name: 'ativos', type: 'boolean', description: 'Listar apenas bloqueios ativos (true ou false)', required: true }
+      ],
+      postParams: authParams,
+      response: `{
+  "retorno_status": true,
+  "bloqueios": [
+    {
+      "id": "9999",
+      "tipo_id": "1",
+      "tipo_nome": "Bloqueio por Inadimplência",
+      "inicio": "dd/mm/aaaa hh:mm:ss",
+      "termino": "dd/mm/aaaa hh:mm:ss",
+      "status_nome": "Inativo (Finalizado)"
+    },
+    {
+      "id": "9999",
+      "tipo_id": "2",
+      "tipo_nome": "Suspensão Temporária",
+      "inicio": "dd/mm/aaaa hh:mm:ss",
+      "termino": null,
+      "status_nome": "Ativo"
+    }
+  ]
+}`
+    },
+    {
+      section: 'Contratos',
+      method: 'POST' as const,
+      url: 'https://api.oletv.net.br/contratos/bloqueio/{id_contrato}',
+      description: 'Bloqueia um contrato',
+      urlParams: [
+        { name: 'id_contrato', type: 'inteiro', description: 'ID do Contrato', required: true }
+      ],
+      postParams: [
+        ...authParams,
+        { name: 'data_encerramento', type: 'string(10)', description: 'Data para encerramento do bloqueio (dd/mm/aaaa)', required: false },
+        { name: 'motivo_suspensao', type: 'inteiro', description: '1 = Inadimplência, 2 = Pedido do Cliente', required: true },
+      ],
+      response: `{
+  "retorno_status": true,
+  "id_bloqueio": "9999",
+  "msg": "Contrato ID 9999 bloqueado com sucesso!"
+}`
+    },
+    {
+      section: 'Contratos',
+      method: 'POST' as const,
+      url: 'https://api.oletv.net.br/contratos/desbloqueio/{id_contrato}/{id_bloqueio}',
+      description: 'Desbloqueia um contrato',
+      urlParams: [
+        { name: 'id_contrato', type: 'inteiro', description: 'ID do Contrato', required: true },
+        { name: 'id_bloqueio', type: 'inteiro', description: 'ID do Bloqueio', required: true }
+      ],
+      postParams: authParams,
+      notes: [
+        'Somente permitido para bloqueios dos tipos "Inadimplência" ou "Pedido do Cliente".'
+      ],
+      response: `{
+  "retorno_status": true,
+  "msg": "Contrato ID 9999 desbloqueado com sucesso!"
+}`
+    },
+    {
+      section: 'Contratos',
+      method: 'POST' as const,
+      url: 'https://api.oletv.net.br/contratos/pontosregistrados/{id_contrato}',
+      description: 'Lista os pontos registrados com status online/offline',
+      urlParams: [
+        { name: 'id_contrato', type: 'inteiro', description: 'ID do Contrato', required: true }
+      ],
+      postParams: authParams,
+      response: `{
+  "retorno_status": true,
+  "pontos": [
+    { "marca": "Android", "modelo": "XXXXXX", "mac": "XXXXXXXXXXXX", "status": "online" }
+  ]
+}`
+    },
+    {
+      section: 'Contratos',
+      method: 'POST' as const,
+      url: 'https://api.oletv.net.br/contratos/mac/{id_contrato}/{id_registro_equipamento}',
+      description: 'Substitui o equipamento/MAC de um contrato',
+      urlParams: [
+        { name: 'id_contrato', type: 'inteiro', description: 'ID do contrato', required: true },
+        { name: 'id_registro_equipamento', type: 'inteiro', description: 'ID do equipamento a ser substituído', required: true }
+      ],
+      postParams: [
+        ...authParams,
+        { name: 'id_modelo', type: 'inteiro', description: 'ID modelo do novo equipamento', required: true },
+        { name: 'mac', type: 'string', description: 'Novo endereço MAC', required: true },
+      ],
+      response: `{
+  "retorno_status": true,
+  "id_contrato": 99999,
+  "codigo": "9999/999999999-99",
+  "msg": "Equipamento substituído com sucesso!"
+}`
+    },
+    {
+      section: 'Contratos',
+      method: 'POST' as const,
+      url: 'https://api.oletv.net.br/contratos/termo/{id_contrato}',
+      description: 'Visualiza o termo de adesão (PDF em Base64)',
+      urlParams: [
+        { name: 'id_contrato', type: 'inteiro', description: 'ID do contrato', required: true }
+      ],
+      postParams: authParams,
+      notes: [
+        'O parâmetro conteúdo retornado é uma string Base64 do PDF.'
+      ],
+      response: `{
+  "retorno_status": true,
+  "formato": "application/pdf",
+  "conteudo": "Base 64 do PDF"
+}`
+    },
+    {
+      section: 'Contratos',
+      method: 'POST' as const,
+      url: 'https://api.oletv.net.br/contratos/cancelar/{id_contrato}',
+      description: 'Cancela um contrato',
+      urlParams: [
+        { name: 'id_contrato', type: 'inteiro', description: 'ID do contrato', required: true }
+      ],
+      postParams: authParams,
+      response: `{
+  "retorno_status": true,
+  "msg": "Contrato cancelado com sucesso!"
 }`
     },
   ], [authParams]);
@@ -1000,6 +1293,269 @@ export function ApiDocs() {
     },
     "status": "Situacao atual da baixa"
   }
+}`}
+            />
+          </Section>
+
+          <Section title="Contratos / Assinatura" icon={<FileSignature className="h-5 w-5" />}>
+            <Endpoint
+              method="POST"
+              url="https://api.oletv.net.br/planos"
+              description="Lista todos os planos disponíveis para contratação"
+              postParams={authParams}
+              response={`{
+  "retorno_status": true,
+  "planos": [
+    {
+      "id": "999",
+      "tipo": "Principal",
+      "nome": "Plano A",
+      "taxa_instalacao": "999.00",
+      "mensalidade": {
+        "normal": "99.99",
+        "ate_vencimento": "99.99",
+        "promocao": "99.99"
+      }
+    },
+    {
+      "id": "999",
+      "tipo": "Adicional",
+      "nome": "Ponto Adicional",
+      "taxa_instalacao": "999.00",
+      "mensalidade": { "normal": "99.99", "ate_vencimento": "99.99", "promocao": "99.99" }
+    }
+  ]
+}`}
+            />
+
+            <Endpoint
+              method="POST"
+              url="https://api.oletv.net.br/equipamentos"
+              description="Lista todos os modelos de equipamentos disponíveis"
+              postParams={authParams}
+              response={`{
+  "retorno_status": true,
+  "modelos": [
+    { "id": "999", "nome": "Modelo A" },
+    { "id": "999", "nome": "Modelo B" }
+  ]
+}`}
+            />
+
+            <Endpoint
+              method="POST"
+              url="https://api.oletv.net.br/contratos/listar/{id_cliente}"
+              description="Lista todos os contratos de um cliente"
+              urlParams={[
+                { name: 'id_cliente', type: 'inteiro', description: 'ID do cliente', required: true }
+              ]}
+              postParams={authParams}
+              response={`{
+  "retorno_status": true,
+  "contratos": [
+    {
+      "id": "9999",
+      "codigo": "Código do contrato",
+      "tipo": "Principal",
+      "servico": "Olé TV",
+      "data_geracao": "dd/mm/aaaa",
+      "data_ativacao": "dd/mm/aaaa",
+      "status": "Ativo (Sem Pendências)",
+      "assinaturas": [...]
+    }
+  ]
+}`}
+            />
+
+            <Endpoint
+              method="POST"
+              url="https://api.oletv.net.br/contratos/alterarusuario/{id_contrato}"
+              description="Altera o e-mail do usuário de um contrato"
+              urlParams={[
+                { name: 'id_contrato', type: 'inteiro', description: 'ID do contrato', required: true }
+              ]}
+              postParams={[
+                ...authParams,
+                { name: 'email_usuario', type: 'texto', description: 'E-mail válido do usuário', required: true },
+              ]}
+              response={`{
+  "retorno_status": true,
+  "msg": "Foi enviado para o e-mail xxxx@xxxx.com.br suas instruções!"
+}`}
+            />
+
+            <Endpoint
+              method="POST"
+              url="https://api.oletv.net.br/contratos/inserir"
+              description="Insere um novo contrato para um cliente"
+              postParams={[
+                ...authParams,
+                { name: 'id_cliente', type: 'inteiro', description: 'ID do Cliente', required: true },
+                { name: 'id_contrato_origem', type: 'string', description: 'ID do contrato no ERP externo', required: false },
+                { name: 'id_plano_principal', type: 'inteiro', description: 'ID do plano principal (/planos)', required: true },
+                { name: 'id_modelo[]', type: 'inteiro', description: 'ID modelo do equipamento', required: false },
+                { name: 'mac[]', type: 'string', description: 'Endereço MAC do equipamento', required: false },
+                { name: 'id_plano_adicional[]', type: 'inteiro', description: 'ID do plano adicional', required: false },
+                { name: 'email_usuario', type: 'string', description: 'E-mail para login mobile', required: false },
+              ]}
+              notes={[
+                'Campos com [] são arrays e podem se repetir.',
+                'Para plano Mobile: informar apenas id_plano_principal + email_usuario.',
+                'O email_usuario é Obrigatório para Plano Mobile.'
+              ]}
+              response={`{
+  "retorno_status": true,
+  "id": "9999",
+  "codigo": "9999/999999999-99",
+  "status": "Ativo (Sem Pendências)"
+}`}
+            />
+
+            <Endpoint
+              method="POST"
+              url="https://api.oletv.net.br/contratos/enviardocumentacao/{id_cliente}/{id_contrato}"
+              description="Envia documentação PDF para um contrato"
+              urlParams={[
+                { name: 'id_cliente', type: 'inteiro', description: 'ID do Cliente', required: true },
+                { name: 'id_contrato', type: 'inteiro', description: 'ID do Contrato', required: true }
+              ]}
+              postParams={[
+                ...authParams,
+                { name: 'nome', type: 'string', description: 'Nome do arquivo PDF', required: true },
+                { name: 'conteudo', type: 'string', description: 'Conteúdo do arquivo PDF em Base64', required: true },
+              ]}
+              response={`{
+  "retorno_status": true,
+  "messagem": "Arquivo enviado com sucesso!"
+}`}
+            />
+
+            <Endpoint
+              method="POST"
+              url="https://api.oletv.net.br/contratos/listarbloqueios/{id_contrato}/{ativos}"
+              description="Lista os bloqueios de um contrato"
+              urlParams={[
+                { name: 'id_contrato', type: 'inteiro', description: 'ID do Contrato', required: true },
+                { name: 'ativos', type: 'boolean', description: 'Listar apenas ativos (true/false)', required: true }
+              ]}
+              postParams={authParams}
+              response={`{
+  "retorno_status": true,
+  "bloqueios": [
+    {
+      "id": "9999",
+      "tipo_id": "1",
+      "tipo_nome": "Bloqueio por Inadimplência",
+      "inicio": "dd/mm/aaaa hh:mm:ss",
+      "termino": "dd/mm/aaaa hh:mm:ss",
+      "status_nome": "Inativo (Finalizado)"
+    }
+  ]
+}`}
+            />
+
+            <Endpoint
+              method="POST"
+              url="https://api.oletv.net.br/contratos/bloqueio/{id_contrato}"
+              description="Bloqueia um contrato"
+              urlParams={[
+                { name: 'id_contrato', type: 'inteiro', description: 'ID do Contrato', required: true }
+              ]}
+              postParams={[
+                ...authParams,
+                { name: 'data_encerramento', type: 'string(10)', description: 'Data encerramento (dd/mm/aaaa)', required: false },
+                { name: 'motivo_suspensao', type: 'inteiro', description: '1 = Inadimplência, 2 = Pedido do Cliente', required: true },
+              ]}
+              response={`{
+  "retorno_status": true,
+  "id_bloqueio": "9999",
+  "msg": "Contrato ID 9999 bloqueado com sucesso!"
+}`}
+            />
+
+            <Endpoint
+              method="POST"
+              url="https://api.oletv.net.br/contratos/desbloqueio/{id_contrato}/{id_bloqueio}"
+              description="Desbloqueia um contrato"
+              urlParams={[
+                { name: 'id_contrato', type: 'inteiro', description: 'ID do Contrato', required: true },
+                { name: 'id_bloqueio', type: 'inteiro', description: 'ID do Bloqueio', required: true }
+              ]}
+              postParams={authParams}
+              notes={[
+                'Somente para bloqueios "Inadimplência" ou "Pedido do Cliente".'
+              ]}
+              response={`{
+  "retorno_status": true,
+  "msg": "Contrato ID 9999 desbloqueado com sucesso!"
+}`}
+            />
+
+            <Endpoint
+              method="POST"
+              url="https://api.oletv.net.br/contratos/pontosregistrados/{id_contrato}"
+              description="Lista pontos registrados com status online/offline"
+              urlParams={[
+                { name: 'id_contrato', type: 'inteiro', description: 'ID do Contrato', required: true }
+              ]}
+              postParams={authParams}
+              response={`{
+  "retorno_status": true,
+  "pontos": [
+    { "marca": "Android", "modelo": "XXXXXX", "mac": "XXXXXXXXXXXX", "status": "online" }
+  ]
+}`}
+            />
+
+            <Endpoint
+              method="POST"
+              url="https://api.oletv.net.br/contratos/mac/{id_contrato}/{id_registro_equipamento}"
+              description="Substitui o equipamento/MAC de um contrato"
+              urlParams={[
+                { name: 'id_contrato', type: 'inteiro', description: 'ID do contrato', required: true },
+                { name: 'id_registro_equipamento', type: 'inteiro', description: 'ID do equipamento a substituir', required: true }
+              ]}
+              postParams={[
+                ...authParams,
+                { name: 'id_modelo', type: 'inteiro', description: 'ID do novo modelo', required: true },
+                { name: 'mac', type: 'string', description: 'Novo endereço MAC', required: true },
+              ]}
+              response={`{
+  "retorno_status": true,
+  "id_contrato": 99999,
+  "msg": "Equipamento substituído com sucesso!"
+}`}
+            />
+
+            <Endpoint
+              method="POST"
+              url="https://api.oletv.net.br/contratos/termo/{id_contrato}"
+              description="Visualiza o termo de adesão (PDF em Base64)"
+              urlParams={[
+                { name: 'id_contrato', type: 'inteiro', description: 'ID do contrato', required: true }
+              ]}
+              postParams={authParams}
+              notes={[
+                'O parâmetro conteúdo retornado é uma string Base64 do PDF.'
+              ]}
+              response={`{
+  "retorno_status": true,
+  "formato": "application/pdf",
+  "conteudo": "Base 64 do PDF"
+}`}
+            />
+
+            <Endpoint
+              method="POST"
+              url="https://api.oletv.net.br/contratos/cancelar/{id_contrato}"
+              description="Cancela um contrato"
+              urlParams={[
+                { name: 'id_contrato', type: 'inteiro', description: 'ID do contrato', required: true }
+              ]}
+              postParams={authParams}
+              response={`{
+  "retorno_status": true,
+  "msg": "Contrato cancelado com sucesso!"
 }`}
             />
           </Section>
