@@ -1,4 +1,7 @@
 // Servidor HTTP
+// Carrega variáveis de ambiente PRIMEIRO
+import 'dotenv/config';
+
 import app from './app';
 import { env } from './config/env';
 import { logger } from './lib/logger';

@@ -5,13 +5,20 @@ import { Queue } from './pages/Queue'
 import { Sync } from './pages/Sync'
 import { Settings } from './pages/Settings'
 import { Logs } from './pages/Logs'
+import { Login } from './pages/Login'
 import { Toaster } from './components/ui/toaster'
+import { AuthProvider, RequireAuth } from './contexts/AuthContext'
 
 function App() {
   return (
-    <>
+    <AuthProvider>
       <Routes>
-        <Route path="/" element={<Layout />}>
+        <Route path="/login" element={<Login />} />
+        <Route path="/" element={
+          <RequireAuth>
+            <Layout />
+          </RequireAuth>
+        }>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="queue" element={<Queue />} />
@@ -21,7 +28,7 @@ function App() {
         </Route>
       </Routes>
       <Toaster />
-    </>
+    </AuthProvider>
   )
 }
 
