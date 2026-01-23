@@ -14,6 +14,8 @@ import syncRoutes from './routes/sync.routes';
 import integrationRoutes from './routes/integration.routes';
 import syncFromOleRoutes from './routes/sync-from-ole.routes';
 import queueRoutes from './routes/queue.routes';
+import logsRoutes from './routes/logs.routes';
+import authRoutes from './routes/auth.routes';
 
 // Criar aplicação
 const app = express();
@@ -75,11 +77,13 @@ app.get('/health', (req, res) => {
 });
 
 // API Routes
+app.use('/api/auth', authRoutes);
 app.use('/api/webhook', webhookRoutes);
 app.use('/api/sync', syncRoutes);
 app.use('/api/integration', integrationRoutes);
 app.use('/api/sync-from-ole', syncFromOleRoutes);
 app.use('/api/queue', queueRoutes);
+app.use('/api/logs', logsRoutes);
 
 // ==========================================
 // ERROR HANDLING
