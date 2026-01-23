@@ -5,9 +5,13 @@ import {
   RefreshCw, 
   ScrollText, 
   Settings,
-  Activity
+  Activity,
+  LogOut,
+  User
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { useAuth } from '@/contexts/AuthContext'
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -18,6 +22,8 @@ const navigation = [
 ]
 
 export function Layout() {
+  const { user, logout } = useAuth()
+
   return (
     <div className="min-h-screen flex">
       {/* Sidebar */}
@@ -54,7 +60,27 @@ export function Layout() {
           ))}
         </nav>
 
-        <div className="p-4 border-t">
+        {/* User info and logout */}
+        <div className="p-4 border-t space-y-3">
+          {user && (
+            <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/50">
+              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <User className="h-4 w-4 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{user.email}</p>
+                <p className="text-xs text-muted-foreground capitalize">{user.role}</p>
+              </div>
+            </div>
+          )}
+          <Button 
+            variant="ghost" 
+            className="w-full justify-start text-muted-foreground hover:text-destructive"
+            onClick={logout}
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Sair
+          </Button>
           <div className="px-3 py-2 rounded-lg bg-muted/50">
             <p className="text-xs text-muted-foreground">Versão</p>
             <p className="text-sm font-medium">1.0.0</p>

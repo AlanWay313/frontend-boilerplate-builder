@@ -132,6 +132,41 @@ model SyncLog {
 }
 
 // ==========================================
+// LOGS DO SISTEMA (EVENTOS GERAIS)
+// ==========================================
+
+enum LogLevel {
+  DEBUG
+  INFO
+  WARN
+  ERROR
+}
+
+model SystemLog {
+  id              String   @id @default(uuid())
+  integrationId   String?  @map("integration_id")
+  
+  // Categorização
+  level           LogLevel @default(INFO)
+  source          String   // webhook, sync, api, queue, auth
+  
+  // Conteúdo
+  message         String
+  details         Json?    // Dados adicionais estruturados
+  
+  // Contexto
+  userId          String?  @map("user_id")
+  requestId       String?  @map("request_id")
+  
+  createdAt       DateTime @default(now()) @map("created_at")
+  
+  @@index([level, createdAt])
+  @@index([source, createdAt])
+  @@index([integrationId, createdAt])
+  @@map("system_logs")
+}
+
+// ==========================================
 // CACHE DE CLIENTES (DADOS LOCAIS DO WEBHOOK)
 // ==========================================
 
