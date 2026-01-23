@@ -17,8 +17,6 @@ import {
   ExternalLink,
   MoreHorizontal,
   Edit,
-  Key,
-  RefreshCw,
   Activity,
   Clock
 } from "lucide-react";
@@ -36,6 +34,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { ClienteAtividadeRecente } from "@/components/cliente/atividade-recente";
 import EditarCliente from "@/components/editarcliente";
+import ResetSenha from "@/components/resetsenha";
+import ReintegrarCliente from "@/components/reintegrarcliente";
 import useIntegrador from "@/hooks/use-integrador";
 import api from "@/services/api";
 
@@ -331,14 +331,11 @@ export function ClientePerfil() {
                     <Edit className="h-4 w-4" />
                     Editar dados
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="gap-2 cursor-pointer">
-                    <Key className="h-4 w-4" />
-                    Resetar senha
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="gap-2 cursor-pointer">
-                    <RefreshCw className="h-4 w-4" />
-                    Reintegrar
-                  </DropdownMenuItem>
+                  <ResetSenha 
+                    contratoCliente={cliente.ole_contract_number} 
+                    emailCliente={cliente.email} 
+                  />
+                  <ReintegrarCliente nome={cliente.nome} />
                   <DropdownMenuSeparator />
                   <DropdownMenuItem 
                     className="gap-2 cursor-pointer"
