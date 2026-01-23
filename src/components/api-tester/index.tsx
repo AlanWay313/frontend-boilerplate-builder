@@ -13,7 +13,8 @@ import {
   Copy, 
   Check,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Globe
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -37,6 +38,22 @@ interface ApiTesterProps {
   onClose: () => void;
 }
 
+// Extrai o path do endpoint (sem a base URL)
+const extractPath = (url: string): string => {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.pathname;
+  } catch {
+    return url;
+  }
+};
+
+// Ambientes pré-definidos
+const ENVIRONMENTS = [
+  { label: 'Produção', value: 'https://api.oletv.net.br' },
+  { label: 'Teste', value: 'https://api-teste.oletv.net.br' },
+];
+
 export function ApiTester({ endpoint, onClose }: ApiTesterProps) {
   const [formValues, setFormValues] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -44,6 +61,9 @@ export function ApiTester({ endpoint, onClose }: ApiTesterProps) {
   const [responseStatus, setResponseStatus] = useState<'success' | 'error' | null>(null);
   const [copied, setCopied] = useState(false);
   const [showParams, setShowParams] = useState(true);
+  const [baseUrl, setBaseUrl] = useState(ENVIRONMENTS[0].value);
+  const [customBaseUrl, setCustomBaseUrl] = useState('');
+  const [useCustomUrl, setUseCustomUrl] = useState(false);
 
   if (!endpoint) return null;
 
@@ -56,13 +76,17 @@ export function ApiTester({ endpoint, onClose }: ApiTesterProps) {
     setFormValues(prev => ({ ...prev, [name]: value }));
   };
 
+  const getActiveBaseUrl = () => {
+    return useCustomUrl ? customBaseUrl : baseUrl;
+  };
+
   const buildUrl = () => {
-    let url = endpoint.url;
+    let path = extractPath(endpoint.url);
     (endpoint.urlParams || []).forEach(param => {
       const value = formValues[param.name] || `{${param.name}}`;
-      url = url.replace(`{${param.name}}`, value);
+      path = path.replace(`{${param.name}}`, value);
     });
-    return url;
+    return `${getActiveBaseUrl()}${path}`;
   };
 
   const handleTest = async () => {
@@ -112,6 +136,8 @@ export function ApiTester({ endpoint, onClose }: ApiTesterProps) {
     setResponseStatus(null);
   };
 
+  const path = extractPath(endpoint.url);
+
   return (
     <div className="h-full flex flex-col bg-card border-l border-border">
       {/* Header */}
@@ -127,21 +153,67 @@ export function ApiTester({ endpoint, onClose }: ApiTesterProps) {
         </Button>
       </div>
 
-      {/* URL Preview */}
-      <div className="px-4 py-3 bg-muted/30 border-b border-border shrink-0">
-        <div className="flex items-center gap-2">
-          <Badge 
-            variant="outline" 
-            className={cn(
-              "font-mono font-bold shrink-0",
-              "border-green-500/50 text-green-500 bg-green-500/10"
-            )}
-          >
-            POST
-          </Badge>
-          <code className="text-xs font-mono text-muted-foreground truncate">
-            {buildUrl()}
-          </code>
+      {/* Environment Selector */}
+      <div className="px-4 py-3 bg-muted/30 border-b border-border shrink-0 space-y-3">
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+            <Globe className="h-3 w-3" />
+            Ambiente
+          </Label>
+          <div className="flex gap-2">
+            {ENVIRONMENTS.map((env) => (
+              <Button
+                key={env.value}
+                variant={!useCustomUrl && baseUrl === env.value ? "default" : "outline"}
+                size="sm"
+                className="h-7 text-xs flex-1"
+                onClick={() => {
+                  setBaseUrl(env.value);
+                  setUseCustomUrl(false);
+                }}
+              >
+                {env.label}
+              </Button>
+            ))}
+            <Button
+              variant={useCustomUrl ? "default" : "outline"}
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => setUseCustomUrl(true)}
+            >
+              Outro
+            </Button>
+          </div>
+          {useCustomUrl && (
+            <Input
+              placeholder="https://sua-api.com"
+              value={customBaseUrl}
+              onChange={(e) => setCustomBaseUrl(e.target.value)}
+              className="h-8 text-xs font-mono"
+            />
+          )}
+        </div>
+
+        {/* URL Preview */}
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">URL Final</Label>
+          <div className="flex items-center gap-2">
+            <Badge 
+              variant="outline" 
+              className={cn(
+                "font-mono font-bold shrink-0",
+                "border-green-500/50 text-green-500 bg-green-500/10"
+              )}
+            >
+              POST
+            </Badge>
+            <code className="text-xs font-mono text-muted-foreground truncate">
+              {buildUrl()}
+            </code>
+          </div>
+          <p className="text-[10px] text-muted-foreground font-mono">
+            Rota: {path}
+          </p>
         </div>
       </div>
 
