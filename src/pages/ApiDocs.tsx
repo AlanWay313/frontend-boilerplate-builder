@@ -17,7 +17,8 @@ import {
   Key,
   AlertCircle,
   Search,
-  X
+  X,
+  Receipt
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -329,6 +330,179 @@ export function ApiDocs() {
       response: `{
   "retorno_status": true,
   "msg": "Cliente alterado com sucesso!"
+}`
+    },
+    // Boletos
+    {
+      section: 'Boletos',
+      method: 'POST' as const,
+      url: 'https://api.oletv.net.br/boletos/listar/{id_cliente}',
+      description: 'Lista todos os boletos de um cliente',
+      urlParams: [
+        { name: 'id_cliente', type: 'inteiro', description: 'ID do cliente desejado', required: true }
+      ],
+      postParams: authParams,
+      response: `{
+  "retorno_status": true,
+  "id_cliente": "99999",
+  "nome": "Cliente A",
+  "cpf_cnpj": "999.999.999-99",
+  "boletos": [
+    {
+      "id": "99",
+      "codigo": "99999999999",
+      "formato": "Boleto Online (SICOOB) [OTT]",
+      "referente": [
+        {
+          "periodo": "mes/ano",
+          "itens": [
+            { "descricao": "Serviço A", "valor": "R$ 99,99" },
+            { "descricao": "Desconto A", "valor": "R$ -9,99" }
+          ]
+        }
+      ],
+      "datas": {
+        "geracao": "dd/mm/aaaa",
+        "vencimento": "dd/mm/aaaa",
+        "pagamento": "dd/mm/aaaa"
+      },
+      "valores": { "bonificacao": "R$ 9,99", "valor": "R$ 99,99" },
+      "nosso_numero": "9999999",
+      "linha_digitavel": "99999.99999 99999.999999 99999.999999 9 99999999999999",
+      "status": "Pago"
+    }
+  ]
+}`
+    },
+    {
+      section: 'Boletos',
+      method: 'POST' as const,
+      url: 'https://api.oletv.net.br/boletos/buscacpfcnpj/{cpf_cnpj}/{status}',
+      description: 'Busca boletos por CPF/CNPJ e status',
+      urlParams: [
+        { name: 'cpf_cnpj', type: 'string', description: 'CPF/CNPJ (Formato: 999.999.999-99)', required: true },
+        { name: 'status', type: 'string', description: 'Status do Boleto (Aberto ou Pago). Vazio para todos.', required: false }
+      ],
+      postParams: authParams,
+      response: `{
+  "retorno_status": true,
+  "id_cliente": "99999",
+  "nome": "Cliente A",
+  "cpf_cnpj": "999.999.999-99",
+  "boletos": [
+    {
+      "id": "99",
+      "codigo": "99999999999",
+      "formato": "Boleto Online (SICOOB) [OTT]",
+      "referente": [
+        {
+          "periodo": "mes/ano",
+          "itens": [
+            { "descricao": "Serviço A", "valor": "R$ 99,99" }
+          ]
+        }
+      ],
+      "datas": {
+        "geracao": "dd/mm/aaaa",
+        "vencimento": "dd/mm/aaaa",
+        "pagamento": null
+      },
+      "valores": { "bonificacao": "R$ 99,99", "valor": "R$ 999,99" },
+      "nosso_numero": "999999999",
+      "linha_digitavel": "99999.99999 99999.999999 99999.999999 9 99999999999999",
+      "status": "Em Aberto"
+    }
+  ]
+}`
+    },
+    {
+      section: 'Boletos',
+      method: 'POST' as const,
+      url: 'https://api.oletv.net.br/boletos/buscacontrato/{id_contrato}',
+      description: 'Busca boletos por ID do contrato',
+      urlParams: [
+        { name: 'id_contrato', type: 'inteiro', description: 'ID do contrato de um cliente', required: true }
+      ],
+      postParams: authParams,
+      response: `{
+  "retorno_status": true,
+  "id_cliente": "99999",
+  "nome": "Cliente A",
+  "cpf_cnpj": "999.999.999-99",
+  "boletos": [
+    {
+      "id": "99",
+      "codigo": "99999999999",
+      "formato": "Boleto Online (SICOOB) [OTT]",
+      "referente": [
+        {
+          "periodo": "mes/ano",
+          "itens": [
+            { "descricao": "Plano A", "valor": "R$ 999,99" }
+          ]
+        }
+      ],
+      "datas": {
+        "geracao": "dd/mm/aaaa",
+        "vencimento": "dd/mm/aaaa",
+        "pagamento": "dd/mm/aaaa"
+      },
+      "valores": { "bonificacao": "R$ 9,99", "valor": "R$ 99,99" },
+      "nosso_numero": "9999999",
+      "linha_digitavel": "99999.99999 99999.999999 99999.999999 9 99999999999999",
+      "status": "Pago"
+    }
+  ]
+}`
+    },
+    {
+      section: 'Boletos',
+      method: 'POST' as const,
+      url: 'https://api.oletv.net.br/boletos/visualizar/{id_boleto}',
+      description: 'Visualiza o PDF de um boleto (retorna Base64)',
+      urlParams: [
+        { name: 'id_boleto', type: 'inteiro', description: 'ID do boleto', required: true }
+      ],
+      postParams: authParams,
+      notes: [
+        'Em caso de sucesso (retorno_status=true), o parâmetro conteúdo retornado na requisição é uma string Base64 do PDF.'
+      ],
+      response: `{
+  "retorno_status": true,
+  "formato": "application/pdf",
+  "conteudo": "Conteudo Base 64"
+}`
+    },
+    {
+      section: 'Boletos',
+      method: 'POST' as const,
+      url: 'https://api.oletv.net.br/boletos/baixa/{id_boleto}',
+      description: 'Registra a baixa/pagamento de um boleto',
+      urlParams: [
+        { name: 'id_boleto', type: 'inteiro', description: 'ID do boleto', required: true }
+      ],
+      postParams: [
+        ...authParams,
+        { name: 'data_pagamento', type: 'data BR', description: 'Data do pagamento: dd/mm/aaaa', required: true },
+        { name: 'valor_pago', type: 'moeda BR', description: 'Total recebido do boleto (valor + juros): Formato: 9.999,90', required: true },
+        { name: 'comentario', type: 'texto', description: 'Comentário que deseja vincular ao pagamento', required: false },
+      ],
+      response: `{
+  "retorno_status": true,
+  "id_boleto": 9999,
+  "data_vencimento": "dd/mm/aaaa",
+  "valor_original": "999,99",
+  "pagamento": {
+    "data": "dd/mm/aaaa",
+    "valores": {
+      "bonificacao": "9,99",
+      "juros": "9,99",
+      "acrescimo": "9,99",
+      "total": "999,99",
+      "pago": "999,99"
+    },
+    "status": "Situacao atual da baixa"
+  }
 }`
     },
   ], [authParams]);
@@ -652,6 +826,180 @@ export function ApiDocs() {
               response={`{
   "retorno_status": true,
   "msg": "Cliente alterado com sucesso!"
+}`}
+            />
+          </Section>
+
+          <Section title="Boletos" icon={<Receipt className="h-5 w-5" />}>
+            <Endpoint
+              method="POST"
+              url="https://api.oletv.net.br/boletos/listar/{id_cliente}"
+              description="Lista todos os boletos de um cliente"
+              urlParams={[
+                { name: 'id_cliente', type: 'inteiro', description: 'ID do cliente desejado', required: true }
+              ]}
+              postParams={authParams}
+              response={`{
+  "retorno_status": true,
+  "id_cliente": "99999",
+  "nome": "Cliente A",
+  "cpf_cnpj": "999.999.999-99",
+  "boletos": [
+    {
+      "id": "99",
+      "codigo": "99999999999",
+      "formato": "Boleto Online (SICOOB) [OTT]",
+      "referente": [
+        {
+          "periodo": "mes/ano",
+          "itens": [
+            { "descricao": "Serviço A", "valor": "R$ 99,99" },
+            { "descricao": "Desconto A", "valor": "R$ -9,99" }
+          ]
+        }
+      ],
+      "datas": {
+        "geracao": "dd/mm/aaaa",
+        "vencimento": "dd/mm/aaaa",
+        "pagamento": "dd/mm/aaaa"
+      },
+      "valores": { "bonificacao": "R$ 9,99", "valor": "R$ 99,99" },
+      "nosso_numero": "9999999",
+      "linha_digitavel": "99999.99999 99999.999999 99999.999999 9 99999999999999",
+      "status": "Pago"
+    }
+  ]
+}`}
+            />
+
+            <Endpoint
+              method="POST"
+              url="https://api.oletv.net.br/boletos/buscacpfcnpj/{cpf_cnpj}/{status}"
+              description="Busca boletos por CPF/CNPJ e status"
+              urlParams={[
+                { name: 'cpf_cnpj', type: 'string', description: 'CPF/CNPJ (Formato: 999.999.999-99)', required: true },
+                { name: 'status', type: 'string', description: 'Status do Boleto (Aberto ou Pago). Vazio para todos.', required: false }
+              ]}
+              postParams={authParams}
+              response={`{
+  "retorno_status": true,
+  "id_cliente": "99999",
+  "nome": "Cliente A",
+  "cpf_cnpj": "999.999.999-99",
+  "boletos": [
+    {
+      "id": "99",
+      "codigo": "99999999999",
+      "formato": "Boleto Online (SICOOB) [OTT]",
+      "referente": [
+        {
+          "periodo": "mes/ano",
+          "itens": [
+            { "descricao": "Serviço A", "valor": "R$ 99,99" }
+          ]
+        }
+      ],
+      "datas": {
+        "geracao": "dd/mm/aaaa",
+        "vencimento": "dd/mm/aaaa",
+        "pagamento": null
+      },
+      "valores": { "bonificacao": "R$ 99,99", "valor": "R$ 999,99" },
+      "nosso_numero": "999999999",
+      "linha_digitavel": "99999.99999 99999.999999 99999.999999 9 99999999999999",
+      "status": "Em Aberto"
+    }
+  ]
+}`}
+            />
+
+            <Endpoint
+              method="POST"
+              url="https://api.oletv.net.br/boletos/buscacontrato/{id_contrato}"
+              description="Busca boletos por ID do contrato"
+              urlParams={[
+                { name: 'id_contrato', type: 'inteiro', description: 'ID do contrato de um cliente', required: true }
+              ]}
+              postParams={authParams}
+              response={`{
+  "retorno_status": true,
+  "id_cliente": "99999",
+  "nome": "Cliente A",
+  "cpf_cnpj": "999.999.999-99",
+  "boletos": [
+    {
+      "id": "99",
+      "codigo": "99999999999",
+      "formato": "Boleto Online (SICOOB) [OTT]",
+      "referente": [
+        {
+          "periodo": "mes/ano",
+          "itens": [
+            { "descricao": "Plano A", "valor": "R$ 999,99" }
+          ]
+        }
+      ],
+      "datas": {
+        "geracao": "dd/mm/aaaa",
+        "vencimento": "dd/mm/aaaa",
+        "pagamento": "dd/mm/aaaa"
+      },
+      "valores": { "bonificacao": "R$ 9,99", "valor": "R$ 99,99" },
+      "nosso_numero": "9999999",
+      "linha_digitavel": "99999.99999 99999.999999 99999.999999 9 99999999999999",
+      "status": "Pago"
+    }
+  ]
+}`}
+            />
+
+            <Endpoint
+              method="POST"
+              url="https://api.oletv.net.br/boletos/visualizar/{id_boleto}"
+              description="Visualiza o PDF de um boleto (retorna Base64)"
+              urlParams={[
+                { name: 'id_boleto', type: 'inteiro', description: 'ID do boleto', required: true }
+              ]}
+              postParams={authParams}
+              notes={[
+                'Em caso de sucesso (retorno_status=true), o parâmetro conteúdo retornado na requisição é uma string Base64 do PDF.'
+              ]}
+              response={`{
+  "retorno_status": true,
+  "formato": "application/pdf",
+  "conteudo": "Conteudo Base 64"
+}`}
+            />
+
+            <Endpoint
+              method="POST"
+              url="https://api.oletv.net.br/boletos/baixa/{id_boleto}"
+              description="Registra a baixa/pagamento de um boleto"
+              urlParams={[
+                { name: 'id_boleto', type: 'inteiro', description: 'ID do boleto', required: true }
+              ]}
+              postParams={[
+                ...authParams,
+                { name: 'data_pagamento', type: 'data BR', description: 'Data do pagamento: dd/mm/aaaa', required: true },
+                { name: 'valor_pago', type: 'moeda BR', description: 'Total recebido do boleto (valor + juros): Formato: 9.999,90', required: true },
+                { name: 'comentario', type: 'texto', description: 'Comentário que deseja vincular ao pagamento', required: false },
+              ]}
+              response={`{
+  "retorno_status": true,
+  "id_boleto": 9999,
+  "data_vencimento": "dd/mm/aaaa",
+  "valor_original": "999,99",
+  "pagamento": {
+    "data": "dd/mm/aaaa",
+    "valores": {
+      "bonificacao": "9,99",
+      "juros": "9,99",
+      "acrescimo": "9,99",
+      "total": "999,99",
+      "pago": "999,99"
+    },
+    "status": "Situacao atual da baixa"
+  }
 }`}
             />
           </Section>
