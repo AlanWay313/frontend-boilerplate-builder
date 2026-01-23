@@ -14,7 +14,21 @@ import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import api from "@/services/api";
 
-export default function EditarCliente({ data, listarClientes }: any) {
+interface EditarClienteProps {
+  data: any;
+  listarClientes: () => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  showTrigger?: boolean;
+}
+
+export default function EditarCliente({ 
+  data, 
+  listarClientes, 
+  open: controlledOpen, 
+  onOpenChange,
+  showTrigger = true 
+}: EditarClienteProps) {
   const [id] = useState(data.id);
   const [nome, setNome] = useState(data.nome);
   const [cpfCnpj, setCpfCnpj] = useState(data.cpf_cnpj);
@@ -27,7 +41,17 @@ export default function EditarCliente({ data, listarClientes }: any) {
   const [enderecoBairro, setEnderecoBairro] = useState(data.endereco_bairro);
   const [data_nascimento, setDataNascimento] = useState(data.data_nascimento);
   const [loading, setLoading] = useState(false);
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+
+  // Suporta tanto modo controlado quanto não-controlado
+  const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const setIsOpen = (value: boolean) => {
+    if (onOpenChange) {
+      onOpenChange(value);
+    } else {
+      setInternalOpen(value);
+    }
+  };
 
   const { toast }: any = useToast();
 
@@ -74,12 +98,14 @@ export default function EditarCliente({ data, listarClientes }: any) {
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <button className="relative flex w-full cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground">
-          <Pencil className="h-4 w-4 text-primary" />
-          <span>Editar Cliente</span>
-        </button>
-      </DialogTrigger>
+      {showTrigger && (
+        <DialogTrigger asChild>
+          <button className="relative flex w-full cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground">
+            <Pencil className="h-4 w-4 text-primary" />
+            <span>Editar Cliente</span>
+          </button>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader className="pb-4 border-b border-border">
           <div className="flex items-center gap-3">
