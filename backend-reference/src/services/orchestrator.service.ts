@@ -5,7 +5,7 @@ import { ClientStatus } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { logger } from '../lib/logger';
 import { OleApiService } from './ole-api.service';
-import { ExternalApiService } from './external-api.service';
+import { ComplementaryApiService, DadosEnriquecidos } from './complementary-api.service';
 import { SyncQueueService } from './sync-queue.service';
 
 // ==========================================
@@ -74,12 +74,12 @@ interface OrchestrationResult {
 export class OrchestratorService {
   private integrationId: string;
   private oleApi: OleApiService | null = null;
-  private externalApi: ExternalApiService;
+  private complementaryApi: ComplementaryApiService;
   private syncQueue: SyncQueueService;
 
   constructor(integrationId: string) {
     this.integrationId = integrationId;
-    this.externalApi = new ExternalApiService(integrationId);
+    this.complementaryApi = new ComplementaryApiService();
     this.syncQueue = new SyncQueueService(integrationId);
   }
 
@@ -194,26 +194,30 @@ export class OrchestratorService {
 
     // =============================================
     // PASSO 2: BUSCAR DADOS COMPLEMENTARES (ENRICHMENT)
+    // Endpoint: /external/integrations/thirdparty/people/txid/{cpf_cnpj}
     // =============================================
-    logger.info('Buscando dados complementares na API externa...', { 
+    logger.info('Buscando dados complementares na API ERP...', { 
       documento: payload.documento 
     });
     
-    let complementaryData: any = null;
+    let complementaryData: DadosEnriquecidos | null = null;
     try {
-      complementaryData = await this.externalApi.buscarCliente(payload.documento);
+      complementaryData = await this.complementaryApi.buscarDadosComplementares(payload.documento);
       
       // Atualiza cache com dados complementares
       await prisma.clientCache.update({
         where: { id: localClient.id },
         data: {
           complementaryData: complementaryData || {},
-          status: 'ENRICHED',
+          status: complementaryData ? 'ENRICHED' : 'PENDING_VALIDATION',
         },
       });
-      logger.info('Dados complementares salvos', { 
+      
+      logger.info('Dados complementares processados', { 
         localId: localClient.id,
-        hasData: !!complementaryData 
+        hasData: !!complementaryData,
+        hasDataNascimento: !!complementaryData?.dataNascimento,
+        hasEndereco: !!complementaryData?.endereco,
       });
     } catch (error: any) {
       logger.warn('Falha ao buscar dados complementares', { 
@@ -300,7 +304,7 @@ export class OrchestratorService {
     }
 
     // Busca dados complementares
-    const complementaryData = await this.externalApi.buscarCliente(payload.documento);
+    const complementaryData = await this.complementaryApi.buscarDadosComplementares(payload.documento);
     const clienteData = this.mergeClientData(payload, complementaryData);
 
     // Verifica se houve mudança nos dados
@@ -477,28 +481,34 @@ export class OrchestratorService {
   // ==========================================
 
   /**
-   * Mescla dados do webhook com dados complementares
+   * Mescla dados do webhook com dados complementares da API ERP
+   * Prioridade: Dados complementares > Dados do webhook
    */
   private mergeClientData(
     webhook: WebhookPayload,
-    complementary: any | null
+    complementary: DadosEnriquecidos | null
   ): Record<string, any> {
     const merged: Record<string, any> = {
       documento: webhook.documento,
-      nome: webhook.nome || complementary?.nome || '',
-      email: webhook.email || complementary?.email || '',
-      telefone: webhook.telefone || complementary?.telefone || complementary?.celular || '',
+      nome: complementary?.nomeCompleto || webhook.nome || '',
+      email: complementary?.email || webhook.email || '',
+      telefone: complementary?.celular || complementary?.telefone || webhook.telefone || '',
     };
 
-    // Endereço - prioriza dados complementares (mais completos)
+    // Endereço - prioriza dados complementares (mais completos e confiáveis)
     if (complementary?.endereco) {
+      merged.tipoLogradouro = complementary.endereco.tipoLogradouro;
       merged.endereco = complementary.endereco.logradouro;
       merged.numero = complementary.endereco.numero;
       merged.complemento = complementary.endereco.complemento;
       merged.bairro = complementary.endereco.bairro;
       merged.cidade = complementary.endereco.cidade;
-      merged.estado = complementary.endereco.estado;
+      merged.codigoCidade = complementary.endereco.codigoCidade; // Código IBGE
+      merged.referencia = complementary.endereco.referencia;
+      merged.estado = complementary.endereco.uf;
       merged.cep = complementary.endereco.cep;
+      merged.longitude = complementary.endereco.longitude;
+      merged.latitude = complementary.endereco.latitude;
     } else if (webhook.endereco) {
       merged.endereco = webhook.endereco;
       merged.numero = webhook.numero;
@@ -508,15 +518,17 @@ export class OrchestratorService {
       merged.cep = webhook.cep;
     }
 
-    // Dados adicionais
+    // Data de nascimento - campo OBRIGATÓRIO para inserção na Olé TV (PF)
     if (complementary?.dataNascimento) {
       merged.dataNascimento = complementary.dataNascimento;
-    }
-    if (complementary?.rg) {
-      merged.rg = complementary.rg;
-    }
-    if (complementary?.sexo) {
-      merged.sexo = complementary.sexo;
+      logger.info('Data de nascimento obtida', { 
+        documento: webhook.documento,
+        dataNascimento: complementary.dataNascimento 
+      });
+    } else {
+      logger.warn('Data de nascimento NÃO encontrada - pode falhar na inserção PF', { 
+        documento: webhook.documento 
+      });
     }
 
     return merged;

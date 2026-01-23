@@ -18,10 +18,9 @@ const envSchema = z.object({
   OLE_API_BASE_URL: z.string().url().default('https://api.ofrfrbo.site/cliente'),
   OLE_API_TIMEOUT: z.string().default('30000'),
   
-  // API Externa (para dados complementares)
-  EXTERNAL_API_URL: z.string().url().optional(),
-  EXTERNAL_API_CLIENT_ID: z.string().optional(),
-  EXTERNAL_API_CLIENT_SECRET: z.string().optional(),
+  // API Complementar (ERP - dados como data de nascimento)
+  COMPLEMENTARY_API_URL: z.string().url().default('https://erp.internetway.com.br:45715'),
+  COMPLEMENTARY_API_TOKEN: z.string().optional(),
   
   // Criptografia
   ENCRYPTION_KEY: z.string().min(32), // Para criptografar senhas da Olé
@@ -57,10 +56,9 @@ JWT_SECRET="sua-chave-secreta-muito-longa-aqui-32chars"
 OLE_API_BASE_URL="https://api.ofrfrbo.site/cliente"
 OLE_API_TIMEOUT=30000
 
-# API Externa (dados complementares)
-EXTERNAL_API_URL="https://erp-staging.internetway.com.br:45700"
-EXTERNAL_API_CLIENT_ID="42be0567-faaa-44a6-886b-f12142b72ffd"
-EXTERNAL_API_CLIENT_SECRET="d44d3d6a-39b8-4e27-bbaf-1b45843debc4"
+# API Complementar (ERP - dados de nascimento, endereço)
+COMPLEMENTARY_API_URL="https://erp.internetway.com.br:45715"
+COMPLEMENTARY_API_TOKEN="seu-bearer-token-aqui"
 
 # Chave de Criptografia (32 caracteres)
 ENCRYPTION_KEY="chave-criptografia-32-caracteres"
