@@ -102,6 +102,15 @@ export function ClientePerfil() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [copiedField, setCopiedField] = React.useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
+
+  const handleOpenEditModal = () => {
+    setIsDropdownOpen(false);
+    // Pequeno delay para garantir que o dropdown feche antes de abrir o modal
+    setTimeout(() => {
+      setIsEditModalOpen(true);
+    }, 100);
+  };
 
   const copyToClipboard = async (text: string, field: string) => {
     try {
@@ -302,19 +311,22 @@ export function ClientePerfil() {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.4 }}
             >
-              <DropdownMenu>
+              <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="lg" className="gap-2">
                     <MoreHorizontal className="h-4 w-4" />
                     Ações
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuContent align="end" className="w-48 bg-popover border border-border">
                   <DropdownMenuLabel>Gerenciar Cliente</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem 
                     className="gap-2 cursor-pointer"
-                    onClick={() => setIsEditModalOpen(true)}
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      handleOpenEditModal();
+                    }}
                   >
                     <Edit className="h-4 w-4" />
                     Editar dados
