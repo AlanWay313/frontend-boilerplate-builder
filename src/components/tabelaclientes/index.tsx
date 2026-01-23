@@ -228,23 +228,6 @@ const clienteFilters: FilterOption[] = [
     ],
   },
   {
-    id: "estado",
-    label: "Estado",
-    options: [
-      { value: "SP", label: "São Paulo" },
-      { value: "RJ", label: "Rio de Janeiro" },
-      { value: "MG", label: "Minas Gerais" },
-      { value: "RS", label: "Rio Grande do Sul" },
-      { value: "PR", label: "Paraná" },
-      { value: "SC", label: "Santa Catarina" },
-      { value: "BA", label: "Bahia" },
-      { value: "GO", label: "Goiás" },
-      { value: "DF", label: "Distrito Federal" },
-      { value: "PE", label: "Pernambuco" },
-      { value: "CE", label: "Ceará" },
-    ],
-  },
-  {
     id: "tipo_documento",
     label: "Tipo de Documento",
     options: [
