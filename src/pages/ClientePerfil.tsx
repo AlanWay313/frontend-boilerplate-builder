@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ClienteAtividadeRecente } from "@/components/cliente/atividade-recente";
+import EditarCliente from "@/components/editarcliente";
 import useIntegrador from "@/hooks/use-integrador";
 import api from "@/services/api";
 
@@ -100,6 +101,7 @@ export function ClientePerfil() {
   const [cliente, setCliente] = React.useState<Cliente | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [copiedField, setCopiedField] = React.useState<string | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
 
   const copyToClipboard = async (text: string, field: string) => {
     try {
@@ -111,36 +113,36 @@ export function ClientePerfil() {
     }
   };
 
-  React.useEffect(() => {
-    const fetchCliente = async () => {
-      if (!integrador || !documento) return;
+  const fetchCliente = React.useCallback(async () => {
+    if (!integrador || !documento) return;
+    
+    setIsLoading(true);
+    try {
+      const result = await api.get("/src/clientes/listarclientes.php", {
+        params: { idIntegra: integrador }
+      });
       
-      setIsLoading(true);
-      try {
-        const result = await api.get("/src/clientes/listarclientes.php", {
-          params: { idIntegra: integrador }
+      const clientes = result.data.data || [];
+      const found = clientes.find((c: Cliente) => 
+        c.cpf_cnpj?.replace(/\D/g, '') === documento?.replace(/\D/g, '')
+      );
+      
+      if (found) {
+        setCliente({
+          ...found,
+          status: found.email ? 'ativo' : 'inativo'
         });
-        
-        const clientes = result.data.data || [];
-        const found = clientes.find((c: Cliente) => 
-          c.cpf_cnpj?.replace(/\D/g, '') === documento?.replace(/\D/g, '')
-        );
-        
-        if (found) {
-          setCliente({
-            ...found,
-            status: found.email ? 'ativo' : 'inativo'
-          });
-        }
-      } catch (error) {
-        console.error('Erro ao buscar cliente:', error);
-      } finally {
-        setIsLoading(false);
       }
-    };
-
-    fetchCliente();
+    } catch (error) {
+      console.error('Erro ao buscar cliente:', error);
+    } finally {
+      setIsLoading(false);
+    }
   }, [integrador, documento]);
+
+  React.useEffect(() => {
+    fetchCliente();
+  }, [fetchCliente]);
 
   const isPessoaJuridica = cliente?.cpf_cnpj?.length && cliente.cpf_cnpj.length > 14;
   const isAtivo = cliente?.status === 'ativo';
@@ -310,7 +312,10 @@ export function ClientePerfil() {
                 <DropdownMenuContent align="end" className="w-48">
                   <DropdownMenuLabel>Gerenciar Cliente</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="gap-2 cursor-pointer">
+                  <DropdownMenuItem 
+                    className="gap-2 cursor-pointer"
+                    onClick={() => setIsEditModalOpen(true)}
+                  >
                     <Edit className="h-4 w-4" />
                     Editar dados
                   </DropdownMenuItem>
@@ -554,6 +559,17 @@ export function ClientePerfil() {
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* Modal de Edição */}
+      {cliente && (
+        <EditarCliente
+          data={cliente}
+          listarClientes={fetchCliente}
+          open={isEditModalOpen}
+          onOpenChange={setIsEditModalOpen}
+          showTrigger={false}
+        />
+      )}
     </motion.div>
   );
 }
