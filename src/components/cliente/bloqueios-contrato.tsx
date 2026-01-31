@@ -32,15 +32,14 @@ export function BloqueiosContrato({ idContrato }: BloqueiosContratoProps) {
   const [bloqueios, setBloqueios] = React.useState<Bloqueio[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
-  const [mostrarTodos, setMostrarTodos] = React.useState(false);
 
   const fetchBloqueios = React.useCallback(async () => {
     setIsLoading(true);
     setError(null);
     
     try {
-      // Busca todos os bloqueios (ativos e inativos)
-      const response = await buscarBloqueiosContrato(idContrato, false);
+      // Busca apenas bloqueios ativos
+      const response = await buscarBloqueiosContrato(idContrato, true);
       
       if (response.error) {
         setError(response.error);
@@ -59,10 +58,10 @@ export function BloqueiosContrato({ idContrato }: BloqueiosContratoProps) {
     fetchBloqueios();
   }, [fetchBloqueios]);
 
-  const bloqueiosAtivos = bloqueios.filter(b => b.status_nome.toLowerCase().includes('ativo') && !b.status_nome.toLowerCase().includes('inativo'));
-  const bloqueiosInativos = bloqueios.filter(b => b.status_nome.toLowerCase().includes('inativo'));
-
-  const bloqueiosExibidos = mostrarTodos ? bloqueios : bloqueiosAtivos;
+  // A API já está sendo chamada com ativos=true, mas mantemos a filtragem como segurança.
+  const bloqueiosAtivos = bloqueios.filter(
+    (b) => b.status_nome.toLowerCase().includes('ativo') && !b.status_nome.toLowerCase().includes('inativo')
+  );
 
   const getStatusIcon = (status: string) => {
     if (status.toLowerCase().includes('inativo')) {
@@ -100,16 +99,6 @@ export function BloqueiosContrato({ idContrato }: BloqueiosContratoProps) {
             <CardTitle className="text-lg">Bloqueios do Contrato</CardTitle>
           </div>
           <div className="flex items-center gap-2">
-            {bloqueios.length > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setMostrarTodos(!mostrarTodos)}
-                className="text-xs"
-              >
-                {mostrarTodos ? 'Ver apenas ativos' : `Ver todos (${bloqueios.length})`}
-              </Button>
-            )}
             <Button
               variant="ghost"
               size="icon"
@@ -121,13 +110,10 @@ export function BloqueiosContrato({ idContrato }: BloqueiosContratoProps) {
             </Button>
           </div>
         </div>
-        {bloqueios.length > 0 && (
+        {bloqueiosAtivos.length > 0 && (
           <div className="flex gap-4 text-sm mt-2">
             <span className="text-destructive font-medium">
               {bloqueiosAtivos.length} ativo{bloqueiosAtivos.length !== 1 ? 's' : ''}
-            </span>
-            <span className="text-muted-foreground">
-              {bloqueiosInativos.length} finalizado{bloqueiosInativos.length !== 1 ? 's' : ''}
             </span>
           </div>
         )}
@@ -143,21 +129,16 @@ export function BloqueiosContrato({ idContrato }: BloqueiosContratoProps) {
               Tentar novamente
             </Button>
           </div>
-        ) : bloqueiosExibidos.length === 0 ? (
+        ) : bloqueiosAtivos.length === 0 ? (
           <div className="text-center py-6 text-muted-foreground">
             <CheckCircle2 className="h-10 w-10 mx-auto mb-2 text-success opacity-70" />
             <p className="text-sm font-medium text-success">
-              {mostrarTodos ? 'Nenhum bloqueio registrado' : 'Sem bloqueios ativos'}
+              Sem bloqueios ativos
             </p>
-            {!mostrarTodos && bloqueiosInativos.length > 0 && (
-              <p className="text-xs mt-1">
-                {bloqueiosInativos.length} bloqueio{bloqueiosInativos.length !== 1 ? 's' : ''} finalizado{bloqueiosInativos.length !== 1 ? 's' : ''}
-              </p>
-            )}
           </div>
         ) : (
           <div className="space-y-3">
-            {bloqueiosExibidos.map((bloqueio, index) => (
+            {bloqueiosAtivos.map((bloqueio, index) => (
               <motion.div
                 key={bloqueio.id}
                 initial={{ opacity: 0, y: 10 }}
