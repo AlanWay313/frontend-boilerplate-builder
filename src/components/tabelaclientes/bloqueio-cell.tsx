@@ -46,14 +46,26 @@ export function BloqueioCell({
   contratoId,
   onResolved,
   showLabel = false,
+  refreshKey,
 }: {
   contratoId: string | number
   onResolved?: (contratoId: string, status: BloqueioStatus) => void
   showLabel?: boolean
+  refreshKey?: string | number
 }) {
   const id = React.useMemo(() => normalizeContratoId(contratoId), [contratoId])
   const [status, setStatus] = React.useState<BloqueioStatus>(() => bloqueioCache.get(id) ?? "unknown")
   const ref = React.useRef<HTMLDivElement | null>(null)
+
+  // Permite forçar revalidação (ex.: após bloquear/desbloquear no perfil)
+  React.useEffect(() => {
+    if (!id) return
+    if (refreshKey === undefined) return
+
+    bloqueioCache.delete(id)
+    inflight.delete(id)
+    setStatus("unknown")
+  }, [id, refreshKey])
 
   React.useEffect(() => {
     if (!id) return

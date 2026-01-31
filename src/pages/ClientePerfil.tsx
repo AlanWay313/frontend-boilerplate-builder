@@ -142,6 +142,7 @@ export function ClientePerfil() {
   const [bloqueioAtivo, setBloqueioAtivo] = React.useState<BloqueioAtivo | null>(null);
   const [showDesbloqueioDialog, setShowDesbloqueioDialog] = React.useState(false);
   const [isDesbloqueando, setIsDesbloqueando] = React.useState(false);
+  const [bloqueioRefreshKey, setBloqueioRefreshKey] = React.useState(0);
 
   const formatOleDateTime = React.useCallback((value: string) => {
     // A API geralmente manda datas em dd/mm/aaaa (às vezes com hora). Se não der parse, mostramos como veio.
@@ -246,6 +247,22 @@ export function ClientePerfil() {
     return () => {
       active = false;
     };
+  }, [cliente?.ole_contract_number, formatOleDateTime, bloqueioRefreshKey]);
+
+  const refreshBloqueioHeader = React.useCallback(async () => {
+    if (!cliente?.ole_contract_number) {
+      setBloqueioAplicadoEm(null);
+      setBloqueioAtivo(null);
+      return;
+    }
+
+    const res = await buscarBloqueiosContrato(cliente.ole_contract_number, true);
+    const bloqueios = res?.bloqueios || [];
+    const primeiro = bloqueios[0];
+    const inicio = primeiro?.inicio;
+
+    setBloqueioAtivo(primeiro ? { id: String(primeiro.id), inicio: primeiro.inicio, tipo_nome: primeiro.tipo_nome } : null);
+    setBloqueioAplicadoEm(inicio ? formatOleDateTime(inicio) : null);
   }, [cliente?.ole_contract_number, formatOleDateTime]);
 
   const handleDesbloquearContrato = async () => {
@@ -271,10 +288,14 @@ export function ClientePerfil() {
 
       setShowDesbloqueioDialog(false);
 
-      // Atualiza status e datas no header
+      // Fecha o modal e força atualização em tela (status + data)
       setTimeout(() => {
-        fetchCliente();
-      }, 500);
+        setBloqueioRefreshKey((k) => k + 1);
+        refreshBloqueioHeader().catch(() => {
+          setBloqueioAplicadoEm(null);
+          setBloqueioAtivo(null);
+        });
+      }, 400);
     } catch {
       toast({
         variant: "destructive",
@@ -309,11 +330,15 @@ export function ClientePerfil() {
 
       setShowBloqueioDialog(false);
       setMotivoBloqueio("2");
-      
-      // Recarrega os dados do cliente após 500ms
+
+      // Fecha o modal e força atualização em tela (status + data)
       setTimeout(() => {
-        fetchCliente();
-      }, 500);
+        setBloqueioRefreshKey((k) => k + 1);
+        refreshBloqueioHeader().catch(() => {
+          setBloqueioAplicadoEm(null);
+          setBloqueioAtivo(null);
+        });
+      }, 400);
     } catch (e) {
       toast({
         variant: 'destructive',
@@ -482,7 +507,7 @@ export function ClientePerfil() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.35 }}
                 >
-                  <BloqueioCell contratoId={cliente.ole_contract_number} showLabel />
+                  <BloqueioCell contratoId={cliente.ole_contract_number} showLabel refreshKey={bloqueioRefreshKey} />
                     {bloqueioAplicadoEm && (
                       <p className="mt-1 text-xs text-muted-foreground">
                         Bloqueado em: <span className="font-medium">{bloqueioAplicadoEm}</span>
